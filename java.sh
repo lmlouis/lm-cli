@@ -1,5 +1,4 @@
 #!/bin/bash
-#!/bin/bash
 
 POM_FILE="pom.xml"
 
@@ -64,10 +63,23 @@ function get_package_name() {
         echo "✘ Fichier pom.xml introuvable dans le dossier courant." >&2
         exit 1
     fi
-    group_id=$(awk '/<\/parent>/ {p=1; next} p && /<groupId>/ {gsub(/.*<groupId>|<\/groupId>.*/, "", $0); print; exit}' "$POM_FILE")
-    artifact_id=$(awk '/<\/parent>/ {p=1; next} p && /<artifactId>/ {gsub(/.*<artifactId>|<\/artifactId>.*/, "", $0); print; exit}' "$POM_FILE")
+
+    # Priorité : project > parent
+    group_id=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='groupId']/text()" "$POM_FILE" 2>/dev/null)
+    if [ -z "$group_id" ]; then
+        group_id=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='parent']/*[local-name()='groupId']/text()" "$POM_FILE" 2>/dev/null)
+    fi
+
+    artifact_id=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='artifactId']/text()" "$POM_FILE" 2>/dev/null)
+
+    if [ -z "$group_id" ] || [ -z "$artifact_id" ]; then
+        echo "✘ Impossible de lire groupId ou artifactId depuis pom.xml" >&2
+        exit 1
+    fi
+
     echo "$group_id.${artifact_id//-/_}"
 }
+
 
 function create_file() {
     local dir=$1
