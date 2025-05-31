@@ -1,6 +1,31 @@
 #!/bin/bash
 
-BASE_DIR="src/main/java/plateforme/ewawa/ewawa_api"
+function get_group_artifact() {
+    if [ ! -f "$POM_FILE" ]; then
+        echo "✘ Fichier pom.xml introuvable." >&2
+        exit 1
+    fi
+    # Extraire groupId (priorité : le groupId en haut, sinon celui dans parent)
+    group_id=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='groupId']/text()" "$POM_FILE" 2>/dev/null)
+    if [ -z "$group_id" ]; then
+        group_id=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='parent']/*[local-name()='groupId']/text()" "$POM_FILE" 2>/dev/null)
+    fi
+
+    artifact_id=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='artifactId']/text()" "$POM_FILE" 2>/dev/null)
+
+    if [ -z "$group_id" ] || [ -z "$artifact_id" ]; then
+        echo "✘ Impossible de lire groupId ou artifactId depuis pom.xml" >&2
+        exit 1
+    fi
+
+    echo "$group_id" "$artifact_id"
+}
+
+read group_id artifact_id < <(get_group_artifact)
+group_path="${group_id//./\/}"   # remplace '.' par '/'
+artifact_path="${artifact_id//-/_}"  # remplace '-' par '_'
+
+BASE_DIR="src/main/java/$group_path/$artifact_path"
 RESOURCES_DIR="src/main/resources"
 POM_FILE="pom.xml"
 
