@@ -1,16 +1,17 @@
 #!/bin/bash
+#!/bin/bash
+
+POM_FILE="pom.xml"
 
 function get_group_artifact() {
     if [ ! -f "$POM_FILE" ]; then
         echo "✘ Fichier pom.xml introuvable." >&2
         exit 1
     fi
-    # Extraire groupId (priorité : le groupId en haut, sinon celui dans parent)
     group_id=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='groupId']/text()" "$POM_FILE" 2>/dev/null)
     if [ -z "$group_id" ]; then
         group_id=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='parent']/*[local-name()='groupId']/text()" "$POM_FILE" 2>/dev/null)
     fi
-
     artifact_id=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='artifactId']/text()" "$POM_FILE" 2>/dev/null)
 
     if [ -z "$group_id" ] || [ -z "$artifact_id" ]; then
@@ -22,12 +23,11 @@ function get_group_artifact() {
 }
 
 read group_id artifact_id < <(get_group_artifact)
-group_path="${group_id//./\/}"   # remplace '.' par '/'
-artifact_path="${artifact_id//-/_}"  # remplace '-' par '_'
-
-BASE_DIR="src/main/java/$group_path/$artifact_path"
+PACKAGE_NAME="$group_id.${artifact_id//-/_}"
+PACKAGE_PATH=$(echo "$PACKAGE_NAME" | sed 's/\./\//g')
+BASE_DIR="src/main/java/$PACKAGE_PATH"
 RESOURCES_DIR="src/main/resources"
-POM_FILE="pom.xml"
+
 
 function show_help() {
     echo "Usage: $0 <command> <subcommand> <name> [option]"
