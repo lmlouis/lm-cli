@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Vérifie si ./java.sh existe dans le projet
+if [ ! -f "./java.sh" ]; then
+    echo "Le fichier ./java.sh est introuvable. Veuillez vérifier que vous êtes dans le bon répertoire."
+    exit 1
+fi
+
+# Donne les permissions d'exécution à cli/java.sh si nécessaire
+chmod +x ./java.sh
+
+# Exécute le script cli/java.sh avec les arguments fournis
+./java.sh "$@"
