@@ -65,7 +65,7 @@ Commandes disponibles:
     create mapper <name> [ --init ]
     create domain <name> [ --enum | --entity ]
     create repository <name>
-    create service <name> [ --mapper | --query | --implement |--service ]
+    create service <name> [ --mapper | --criteria | --query | --implement | --class ]
     create rest <name>
     create changelog <name> [ --init | --data | --sql ]
     create application <profile> [ --yml | --properties ]

@@ -2,34 +2,32 @@
 
 POM_FILE="pom.xml"
 
-function get_group_artifact() {
-    if [ ! -f "$POM_FILE" ]; then
-        echo "✘ Fichier pom.xml introuvable." >&2
-        exit 1
-    fi
-    group_id=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='groupId']/text()" "$POM_FILE" 2>/dev/null)
-    if [ -z "$group_id" ]; then
-        group_id=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='parent']/*[local-name()='groupId']/text()" "$POM_FILE" 2>/dev/null)
-    fi
-    artifact_id=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='artifactId']/text()" "$POM_FILE" 2>/dev/null)
+if [ ! -f "$POM_FILE" ]; then
+    echo "✘ Fichier pom.xml introuvable." >&2
+    exit 1
+fi
 
-    if [ -z "$group_id" ] || [ -z "$artifact_id" ]; then
-        echo "✘ Impossible de lire groupId ou artifactId depuis pom.xml" >&2
-        exit 1
-    fi
+group_id=$(mvn help:evaluate -Dexpression=project.groupId -q -DforceStdout)
+artifact_id=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
 
-    echo "$group_id" "$artifact_id"
-}
+if [ -z "$group_id" ] || [ -z "$artifact_id" ]; then
+    echo "✘ Impossible de lire groupId ou artifactId depuis pom.xml" >&2
+    exit 1
+fi
 
-read group_id artifact_id < <(get_group_artifact)
-PACKAGE_NAME="$group_id.${artifact_id//-/_}"
-PACKAGE_PATH=$(echo "$PACKAGE_NAME" | sed 's/\./\//g')
+if [ -z "$group_id" ] || [ -z "$artifact_id" ]; then
+    echo "✘ Impossible de lire groupId ou artifactId depuis pom.xml" >&2
+    exit 1
+fi
+
+PACKAGE_NAME="$group_id.${artifact_id//-/}"  # Supprime les tirets
+PACKAGE_PATH="${PACKAGE_NAME//./\/}"         # Convertit les points en chemin
 BASE_DIR="src/main/java/$PACKAGE_PATH"
 RESOURCES_DIR="src/main/resources"
 
 
 function show_help() {
-    echo "Usage: $0 <command> <subcommand> <name> [option]"
+    echo "Usage: $0 <command> <subcommand> <name> [option | --force]"
     echo ""
     echo "Commandes disponibles:"
     echo "  create config <name> [ --properties ]"
@@ -42,7 +40,7 @@ function show_help() {
     echo "  create mapper <name> [ --init ]"
     echo "  create domain <name> [ --enum | --entity ]"
     echo "  create repository <name>"
-    echo "  create service <name> [ --mapper | --query | --implement |--service ]"
+    echo "  create service <name> [ --mapper | --criteria | --query | --implement | --class ]"
     echo "  create rest <name>"
     echo "  create changelog <name> [ --init | --data | --sql ]"
     echo "  create application <profile> [ --yml | --properties ]"
@@ -54,9 +52,6 @@ function capitalize() {
     # Remplacer les tirets par des espaces, puis convertir chaque mot en majuscule
     echo "$name" | sed 's/-/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2))}1' | tr -d ' '
 }
-
-
-
 
 function get_package_name() {
     if [ ! -f "$POM_FILE" ]; then
@@ -81,15 +76,28 @@ function get_package_name() {
 }
 
 
+
 function create_file() {
     local dir=$1
     local filename=$2
     local content=$3
 
     mkdir -p "$dir"
-    echo "$content" > "$dir/$filename"
-    echo "✔ Fichier créé : $dir/$filename"
+
+    FORCE=false
+    if [ "$OPTION" == "--force" ]; then
+        FORCE=true
+    fi
+
+    if [ -f "$dir/$filename" ] && [ "$FORCE" != true ]; then
+        echo "⚠ Fichier existant : $dir/$filename"
+    else
+        echo "$content" > "$dir/$filename"
+        echo "✔ Fichier créé : $dir/$filename"
+    fi
 }
+
+
 
 # Vérification des arguments
 if [ $# -lt 3 ]; then
@@ -102,7 +110,7 @@ SUBCOMMAND=$2
 NAME=$3
 OPTION=$4
 CLASS_NAME=$(capitalize "$NAME")
-PACKAGE_NAME=$(get_package_name)
+JAVA_PACKAGE="$PACKAGE_NAME"
 PACKAGE_PATH=$(echo "$PACKAGE_NAME" | sed 's/\./\//g')
 JAVA_PACKAGE="$PACKAGE_NAME"
 
@@ -251,47 +259,73 @@ public class ${CLASS_NAME} {
     repository)
         create_file "$BASE_DIR/repository" "${CLASS_NAME}Repository.java" "package $JAVA_PACKAGE.repository;
 
-import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.UUID;
+import org.springframework.data.jpa.repository.*;
 import org.springframework.stereotype.Repository;
 import $JAVA_PACKAGE.domain.${CLASS_NAME};
-
 @Repository
-public interface ${CLASS_NAME}Repository extends JpaRepository<${CLASS_NAME}, Long> {
+public interface ${CLASS_NAME}Repository extends JpaRepository<${CLASS_NAME}, UUID>, JpaSpecificationExecutor<${CLASS_NAME}> {
 }"
         ;;
     service)
-        case "$OPTION" in
-            --mapper)
-                create_file "$BASE_DIR/service/mapper" "${CLASS_NAME}Mapper.java" "package $JAVA_PACKAGE.service.mapper;
+        # Toutes les options à partir du 4ᵉ argument
+        OPTIONS=()
+        if [ $# -ge 4 ]; then
+            OPTIONS=("${@:4}")
+        fi
+        if [ ${#OPTIONS[@]} -eq 0 ]; then
+            create_file "$BASE_DIR/service" "${CLASS_NAME}Service.java" "package $JAVA_PACKAGE.service;
+
+import org.springframework.stereotype.Service;
+
+@Service
+public interface ${CLASS_NAME}Service {
+}"
+        else
+            for opt in "${OPTIONS[@]}"; do
+                case "$opt" in
+                    --mapper)
+                        create_file "$BASE_DIR/service/mapper" "${CLASS_NAME}Mapper.java" "package $JAVA_PACKAGE.service.mapper;
 
 public class ${CLASS_NAME}Mapper {
 }"
-                ;;
-            --query)
-                create_file "$BASE_DIR/service/query" "${CLASS_NAME}QueryService.java" "package $JAVA_PACKAGE.service.query;
+                        ;;
+                    --criteria)
+                        create_file "$BASE_DIR/service/criteria" "${CLASS_NAME}Criteria.java" "package $JAVA_PACKAGE.service.criteria;
+
+public class ${CLASS_NAME}Criteria {
+}"
+                        ;;
+                    --query)
+                        create_file "$BASE_DIR/service/query" "${CLASS_NAME}QueryService.java" "package $JAVA_PACKAGE.service.query;
 
 public class ${CLASS_NAME}QueryService {
 }"
-                ;;
-            --implement)
-                create_file "$BASE_DIR/service/impl" "${CLASS_NAME}ServiceImpl.java" "package $JAVA_PACKAGE.service.impl;
+                        ;;
+                    --implement)
+                        create_file "$BASE_DIR/service/impl" "${CLASS_NAME}ServiceImpl.java" "package $JAVA_PACKAGE.service.impl;
 
 import org.springframework.stereotype.Service;
 
 @Service
 public class ${CLASS_NAME}ServiceImpl {
 }"
-                ;;
-            *)
-                create_file "$BASE_DIR/service" "${CLASS_NAME}Service.java" "package $JAVA_PACKAGE.service;
+                    ;;
+                    --class)
+                        create_file "$BASE_DIR/service" "${CLASS_NAME}Service.java" "package $JAVA_PACKAGE.service;
 
 import org.springframework.stereotype.Service;
 
 @Service
 public class ${CLASS_NAME}Service {
 }"
-                ;;
-        esac
+                    ;;
+                    *)
+                        echo "⚠ Option inconnue : $opt"
+                        ;;
+                esac
+            done
+        fi
         ;;
     rest)
         create_file "$BASE_DIR/web/rest" "${CLASS_NAME}Resource.java" "package $JAVA_PACKAGE.web.rest;
