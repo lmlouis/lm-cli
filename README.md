@@ -8,10 +8,10 @@
  ├── src/
  │   ├── main/
  │   │   ├── java/
- │   │   │   └── plateforme/
- │   │   │       └── ewawa/
- │   │   │           └── ewawa_api/
- │   │   │               ├── EwawaApiApplication.java
+ │   │   │   └── dev/
+ │   │   │       └── lmlouis/
+ │   │   │           └── api/
+ │   │   │               ├── ApiApplication.java
  │   │   │               ├── config/            # Configurations globales (CORS, Beans, etc.)
  │   │   │               ├── common/            # Exceptions, constantes, helpers, etc.
  │   │   │               ├── security/          # JWT, 2FA, gestion des tokens
