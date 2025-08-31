@@ -20,8 +20,8 @@ if [ -z "$group_id" ] || [ -z "$artifact_id" ]; then
     exit 1
 fi
 
-PACKAGE_NAME="$group_id.${artifact_id//-/}"  # Supprime les tirets
-PACKAGE_PATH="${PACKAGE_NAME//./\/}"         # Convertit les points en chemin
+PACKAGE_NAME="$group_id.${artifact_id//-/_}"  # Supprime les tirets
+PACKAGE_PATH="${PACKAGE_NAME//.//}"         # Convertit les points en chemin
 BASE_DIR="src/main/java/$PACKAGE_PATH"
 RESOURCES_DIR="src/main/resources"
 
@@ -276,9 +276,7 @@ public interface ${CLASS_NAME}Repository extends JpaRepository<${CLASS_NAME}, UU
         if [ ${#OPTIONS[@]} -eq 0 ]; then
             create_file "$BASE_DIR/service" "${CLASS_NAME}Service.java" "package $JAVA_PACKAGE.service;
 
-import org.springframework.stereotype.Service;
 
-@Service
 public interface ${CLASS_NAME}Service {
 }"
         else
@@ -306,9 +304,10 @@ public class ${CLASS_NAME}QueryService {
                         create_file "$BASE_DIR/service/impl" "${CLASS_NAME}ServiceImpl.java" "package $JAVA_PACKAGE.service.impl;
 
 import org.springframework.stereotype.Service;
+import $JAVA_PACKAGE.service.${CLASS_NAME}Service;
 
 @Service
-public class ${CLASS_NAME}ServiceImpl {
+public class ${CLASS_NAME}ServiceImpl implements ${CLASS_NAME}Service {
 }"
                     ;;
                     --class)
