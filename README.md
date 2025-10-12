@@ -202,6 +202,6 @@ Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
 
 ## 👨‍💻 Auteur
 
-Développé par [WORA SOUAMY Louis Martin] - [louis-martin.wora@aninf.ga]
+Développé par WORA SOUAMY Louis Martin - louis-martin.wora@aninf.ga
 
 ---
