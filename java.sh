@@ -1,127 +1,306 @@
 #!/bin/bash
 
-POM_FILE="pom.xml"
+# Variables globales
+export POM_FILE="pom.xml"
+export FORCE_GLOBAL=false
+export CUSTOM_PACKAGE=""
+export BASE_DIR=""
+export RESOURCES_DIR="src/main/resources"
 
-if [ ! -f "$POM_FILE" ]; then
-    echo "✘ Fichier pom.xml introuvable." >&2
-    exit 1
-fi
+# Fonction d'auto-complétion
+function _lm_completion() {
+    local cur prev words cword
+    _init_completion || return
 
-group_id=$(mvn help:evaluate -Dexpression=project.groupId -q -DforceStdout)
-artifact_id=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
+    case ${prev} in
+        lm)
+            COMPREPLY=($(compgen -W "create" -- "$cur"))
+            ;;
+        create)
+            COMPREPLY=($(compgen -W "config exception constant security pagination filter dto mapper domain repository service rest changelog application" -- "$cur"))
+            ;;
+        config|exception|constant|security|dto|mapper|domain|repository|service|rest|changelog|application)
+            COMPREPLY=($(compgen -W "--force --package=" -- "$cur"))
+            ;;
+        --package)
+            COMPREPLY=($(compgen -W "statistics security common util" -- "$cur"))
+            ;;
+        *)
+            case ${words[2]} in
+                config)
+                    COMPREPLY=($(compgen -W "--properties" -- "$cur"))
+                    ;;
+                dto)
+                    COMPREPLY=($(compgen -W "--record" -- "$cur"))
+                    ;;
+                mapper)
+                    COMPREPLY=($(compgen -W "--init" -- "$cur"))
+                    ;;
+                domain)
+                    COMPREPLY=($(compgen -W "--enum --entity" -- "$cur"))
+                    ;;
+                service)
+                    COMPREPLY=($(compgen -W "--mapper --criteria --query --implement --class" -- "$cur"))
+                    ;;
+                changelog)
+                    COMPREPLY=($(compgen -W "--init --data --sql" -- "$cur"))
+                    ;;
+                application)
+                    COMPREPLY=($(compgen -W "--yml --properties" -- "$cur"))
+                    ;;
+            esac
+            ;;
+    esac
+}
 
-if [ -z "$group_id" ] || [ -z "$artifact_id" ]; then
-    echo "✘ Impossible de lire groupId ou artifactId depuis pom.xml" >&2
-    exit 1
-fi
+# Enregistrer l'auto-complétion
+complete -F _lm_completion lm
 
-if [ -z "$group_id" ] || [ -z "$artifact_id" ]; then
-    echo "✘ Impossible de lire groupId ou artifactId depuis pom.xml" >&2
-    exit 1
-fi
-
-PACKAGE_NAME="$group_id.${artifact_id//-/_}"  # Supprime les tirets
-PACKAGE_PATH="${PACKAGE_NAME//.//}"         # Convertit les points en chemin
-BASE_DIR="src/main/java/$PACKAGE_PATH"
-RESOURCES_DIR="src/main/resources"
-
-
+# Fonction d'affichage d'aide
 function show_help() {
-    echo "Usage: $0 <command> <subcommand> <name> [option | --force]"
+    echo "Usage: $0 [OPTIONS] <command> <subcommand> <name>"
+    echo ""
+    echo "Options globales:"
+    echo "  --force           Écraser les fichiers existants"
+    echo "  --package=NAME    Spécifier un package personnalisé"
+    echo "  --help            Afficher cette aide"
     echo ""
     echo "Commandes disponibles:"
-    echo "  create config <name> [ --properties ]"
+    echo "  create config <name> [--properties]"
     echo "  create exception <name>"
     echo "  create constant <name>"
     echo "  create security <name>"
     echo "  create pagination"
     echo "  create filter"
-    echo "  create dto <name> "
-    echo "  create mapper <name> [ --init ]"
-    echo "  create domain <name> [ --enum | --entity ]"
+    echo "  create dto <name> [--record]"
+    echo "  create mapper <name> [--init]"
+    echo "  create domain <name> [--enum | --entity]"
     echo "  create repository <name>"
-    echo "  create service <name> [ --mapper | --criteria | --query | --implement | --class ]"
+    echo "  create service <name> [--mapper | --criteria | --query | --implement | --class]"
     echo "  create rest <name>"
-    echo "  create changelog <name> [ --init | --data | --sql ]"
-    echo "  create application <profile> [ --yml | --properties ]"
+    echo "  create changelog <name> [--init | --data | --sql]"
+    echo "  create application <profile> [--yml | --properties]"
+    echo ""
+    echo "Exemples:"
+    echo "  $0 create service UserService --mapper --implement"
+    echo "  $0 --force create domain Product --entity"
+    echo "  $0 --package=com.example create rest UserResource"
     echo ""
 }
+
+# Fonction de capitalisation
 function capitalize() {
-    # Remplacer les tirets par des majuscules, sans ajouter de lettres inutiles
     local name=$1
-    # Remplacer les tirets par des espaces, puis convertir chaque mot en majuscule
     echo "$name" | sed 's/-/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2))}1' | tr -d ' '
 }
 
-function get_package_name() {
+# Fonction pour récupérer le package name de base
+function get_base_package_name() {
     if [ ! -f "$POM_FILE" ]; then
         echo "✘ Fichier pom.xml introuvable dans le dossier courant." >&2
         exit 1
     fi
 
-    # Priorité : project > parent
-    group_id=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='groupId']/text()" "$POM_FILE" 2>/dev/null)
+    # Essayer d'abord avec Maven
+    group_id=$(mvn help:evaluate -Dexpression=project.groupId -q -DforceStdout 2>/dev/null)
+    artifact_id=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout 2>/dev/null)
+
+    # Fallback sur xmllint si Maven échoue
     if [ -z "$group_id" ]; then
-        group_id=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='parent']/*[local-name()='groupId']/text()" "$POM_FILE" 2>/dev/null)
+        group_id=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='groupId']/text()" "$POM_FILE" 2>/dev/null || xmllint --xpath "/*[local-name()='project']/*[local-name()='parent']/*[local-name()='groupId']/text()" "$POM_FILE" 2>/dev/null)
     fi
 
-    artifact_id=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='artifactId']/text()" "$POM_FILE" 2>/dev/null)
+    if [ -z "$artifact_id" ]; then
+        artifact_id=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='artifactId']/text()" "$POM_FILE" 2>/dev/null)
+    fi
 
     if [ -z "$group_id" ] || [ -z "$artifact_id" ]; then
         echo "✘ Impossible de lire groupId ou artifactId depuis pom.xml" >&2
         exit 1
     fi
 
-    echo "$group_id.${artifact_id//-/_}"
+    # Nettoyer l'artifact_id (remplacer les tirets)
+    local clean_artifact_id="${artifact_id//-/_}"
+    echo "$group_id.$clean_artifact_id"
 }
 
-
-
+# Fonction de création de fichier
 function create_file() {
     local dir=$1
     local filename=$2
     local content=$3
+    local force=${4:-false}
 
     mkdir -p "$dir"
 
-    FORCE=false
-    if [ "$OPTION" == "--force" ]; then
-        FORCE=true
-    fi
-
-    if [ -f "$dir/$filename" ] && [ "$FORCE" != true ]; then
-        echo "⚠ Fichier existant : $dir/$filename"
+    if [ -f "$dir/$filename" ] && [ "$force" != true ]; then
+        echo "⚠ Fichier existant : $dir/$filename (utilisez --force pour écraser)"
+        return 1
     else
         echo "$content" > "$dir/$filename"
         echo "✔ Fichier créé : $dir/$filename"
+        return 0
     fi
 }
 
+# Fonction pour traiter les options globales
+function parse_global_options() {
+    local args=("$@")
+    local remaining_args=()
 
+    echo "DEBUG: Parsing args: ${args[@]}" >&2
 
-# Vérification des arguments
-if [ $# -lt 3 ]; then
-    show_help
-    exit 1
-fi
+    for arg in "${args[@]}"; do
+        case "$arg" in
+            --force)
+                FORCE_GLOBAL=true
+                echo "DEBUG: Set FORCE_GLOBAL=true" >&2
+                ;;
+            --package=*)
+                CUSTOM_PACKAGE="${arg#--package=}"
+                echo "DEBUG: Set CUSTOM_PACKAGE='$CUSTOM_PACKAGE'" >&2
+                ;;
+            --help)
+                show_help
+                exit 0
+                ;;
+            *)
+                remaining_args+=("$arg")
+                ;;
+        esac
+    done
 
-COMMAND=$1
-SUBCOMMAND=$2
-NAME=$3
-OPTION=$4
-CLASS_NAME=$(capitalize "$NAME")
-JAVA_PACKAGE="$PACKAGE_NAME"
-PACKAGE_PATH=$(echo "$PACKAGE_NAME" | sed 's/\./\//g')
-JAVA_PACKAGE="$PACKAGE_NAME"
+    echo "DEBUG: Remaining args: ${remaining_args[@]}" >&2
 
-if [ "$COMMAND" != "create" ]; then
-    show_help
-    exit 1
-fi
+    # Retourner les valeurs via des variables globales
+    export FORCE_GLOBAL
+    export CUSTOM_PACKAGE
 
-case "$SUBCOMMAND" in
-    config)
-      if [ "$OPTION" == "--properties" ]; then
+    echo "${remaining_args[@]}"
+}
+
+# Initialisation du package et des répertoires
+function initialize_package() {
+    local base_package=$(get_base_package_name)
+
+    # Si un package personnalisé est spécifié, on l'ajoute au package de base
+    if [ -n "$CUSTOM_PACKAGE" ]; then
+        PACKAGE_NAME="${base_package}.${CUSTOM_PACKAGE}"
+    else
+        PACKAGE_NAME="$base_package"
+    fi
+
+    # Nettoyer le package name (supprimer les tirets)
+    PACKAGE_NAME=$(echo "$PACKAGE_NAME" | sed 's/-//g')
+    PACKAGE_PATH="${PACKAGE_NAME//.//}"
+    BASE_DIR="src/main/java/$PACKAGE_PATH"
+
+    echo "Package: $PACKAGE_NAME"
+    echo "Base directory: $BASE_DIR"
+}
+
+# Traitement des commandes principales
+function process_command() {
+    local command_args=("$@")
+    local COMMAND=${command_args[0]}
+    local SUBCOMMAND=${command_args[1]}
+    local NAME=${command_args[2]}
+    local OPTIONS=("${command_args[@]:3}")
+
+    if [ "$COMMAND" != "create" ]; then
+        echo "✘ Commande invalide : $COMMAND"
+        show_help
+        exit 1
+    fi
+
+    # Validation des arguments minimum
+    if [ -z "$SUBCOMMAND" ]; then
+        echo "✘ Sous-commande manquante"
+        show_help
+        exit 1
+    fi
+
+    case "$SUBCOMMAND" in
+        config|exception|constant|security|dto|domain|repository|service|rest|changelog|application)
+            if [ -z "$NAME" ] && [ "$SUBCOMMAND" != "pagination" ] && [ "$SUBCOMMAND" != "filter" ] && [ "$SUBCOMMAND" != "changelog" ]; then
+                echo "✘ Nom manquant pour la sous-commande $SUBCOMMAND"
+                show_help
+                exit 1
+            fi
+            ;;
+    esac
+
+    local CLASS_NAME=$(capitalize "$NAME")
+    local JAVA_PACKAGE="$PACKAGE_NAME"
+
+    case "$SUBCOMMAND" in
+        config)
+            process_config "$CLASS_NAME" "$NAME" "${OPTIONS[@]}"
+            ;;
+        exception)
+            process_exception "$CLASS_NAME" "$JAVA_PACKAGE"
+            ;;
+        constant)
+            process_constant "$CLASS_NAME" "$JAVA_PACKAGE"
+            ;;
+        security)
+            process_security "$CLASS_NAME" "$JAVA_PACKAGE"
+            ;;
+        pagination)
+            process_pagination "$JAVA_PACKAGE"
+            ;;
+        filter)
+            process_filter "$JAVA_PACKAGE"
+            ;;
+        dto)
+            process_dto "$CLASS_NAME" "$JAVA_PACKAGE" "${OPTIONS[@]}"
+            ;;
+        mapper)
+            process_mapper "$CLASS_NAME" "$JAVA_PACKAGE" "${OPTIONS[@]}"
+            ;;
+        domain)
+            process_domain "$CLASS_NAME" "$JAVA_PACKAGE" "${OPTIONS[@]}"
+            ;;
+        repository)
+            process_repository "$CLASS_NAME" "$JAVA_PACKAGE"
+            ;;
+        service)
+            process_service "$CLASS_NAME" "$JAVA_PACKAGE" "${OPTIONS[@]}"
+            ;;
+        rest)
+            process_rest "$CLASS_NAME" "$JAVA_PACKAGE" "$NAME"
+            ;;
+        changelog)
+            process_changelog "$NAME" "${OPTIONS[@]}"
+            ;;
+        application)
+            process_application "$NAME" "${OPTIONS[@]}"
+            ;;
+        *)
+            echo "✘ Sous-commande invalide : $SUBCOMMAND"
+            show_help
+            exit 1
+            ;;
+    esac
+}
+
+# Fonctions de traitement par type
+function process_config() {
+    local CLASS_NAME=$1
+    local NAME=$2
+    shift 2
+    local OPTIONS=("$@")
+
+    local option=""
+    for opt in "${OPTIONS[@]}"; do
+        case "$opt" in
+            --properties) option="properties" ;;
+            --force) ;; # déjà géré globalement
+            *) echo "⚠ Option inconnue pour config: $opt" ;;
+        esac
+    done
+
+    if [ "$option" == "properties" ]; then
         create_file "$BASE_DIR/config" "${CLASS_NAME}Properties.java" "package $JAVA_PACKAGE.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -131,8 +310,8 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = \"${NAME//-/.}\")
 public class ${CLASS_NAME}Properties {
     // Ajoute tes propriétés ici
-}"
-      else
+}" "$FORCE_GLOBAL"
+    else
         create_file "$BASE_DIR/config" "${CLASS_NAME}Config.java" "package $JAVA_PACKAGE.config;
 
 import org.springframework.context.annotation.Configuration;
@@ -140,65 +319,152 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class ${CLASS_NAME}Config {
     // Configuration ici
-}"
-      fi
-      ;;
-    exception)
-        create_file "$BASE_DIR/common" "${CLASS_NAME}Exception.java" "package $JAVA_PACKAGE.common;
+}" "$FORCE_GLOBAL"
+    fi
+}
+
+function process_exception() {
+    local CLASS_NAME=$1
+    local JAVA_PACKAGE=$2
+
+    create_file "$BASE_DIR/exception" "${CLASS_NAME}Exception.java" "package $JAVA_PACKAGE.exception;
 
 public class ${CLASS_NAME}Exception extends RuntimeException {
     public ${CLASS_NAME}Exception(String message) {
         super(message);
     }
-}"
-        ;;
-    constant)
-        create_file "$BASE_DIR/common" "${CLASS_NAME}Constant.java" "package $JAVA_PACKAGE.common;
+
+    public ${CLASS_NAME}Exception(String message, Throwable cause) {
+        super(message, cause);
+    }
+}" "$FORCE_GLOBAL"
+}
+
+function process_constant() {
+    local CLASS_NAME=$1
+    local JAVA_PACKAGE=$2
+
+    create_file "$BASE_DIR/constant" "${CLASS_NAME}Constant.java" "package $JAVA_PACKAGE.constant;
 
 public final class ${CLASS_NAME}Constant {
     private ${CLASS_NAME}Constant() {}
-}"
-        ;;
-    security)
-        create_file "$BASE_DIR/security" "${CLASS_NAME}.java" "package $JAVA_PACKAGE.security;
 
+    // Définir vos constantes ici
+}" "$FORCE_GLOBAL"
+}
+
+function process_security() {
+    local CLASS_NAME=$1
+    local JAVA_PACKAGE=$2
+
+    create_file "$BASE_DIR/security" "${CLASS_NAME}.java" "package $JAVA_PACKAGE.security;
+
+import org.springframework.stereotype.Component;
+
+@Component
 public class ${CLASS_NAME} {
-}"
-        ;;
-    pagination)
-        create_file "$BASE_DIR/pagination" "Pagination.java" "package $JAVA_PACKAGE.pagination;
+    // Configuration de sécurité ici
+}" "$FORCE_GLOBAL"
+}
+
+function process_pagination() {
+    local JAVA_PACKAGE=$1
+
+    create_file "$BASE_DIR/model" "Pagination.java" "package $JAVA_PACKAGE.model;
 
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 public class Pagination {
-    // Classe de pagination ici
-}"
-        ;;
-    filter)
-        create_file "$BASE_DIR/filter" "RequestFilter.java" "package $JAVA_PACKAGE.filter;
+    public static Pageable createPageable(Integer page, Integer size) {
+        if (page == null || size == null) {
+            return Pageable.unpaged();
+        }
+        return PageRequest.of(page, size);
+    }
+}" "$FORCE_GLOBAL"
+}
+
+function process_filter() {
+    local JAVA_PACKAGE=$1
+
+    create_file "$BASE_DIR/filter" "RequestFilter.java" "package $JAVA_PACKAGE.filter;
 
 import jakarta.servlet.*;
-import jakarta.servlet.http.*;
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 
 public class RequestFilter implements Filter {
+
+    @Override
+    public void init(FilterConfig filterConfig) throws ServletException {
+        // Initialisation du filtre
+    }
+
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
+        // Logique du filtre
         chain.doFilter(request, response);
     }
-}"
-        ;;
-    dto)
+
+    @Override
+    public void destroy() {
+        // Nettoyage du filtre
+    }
+}" "$FORCE_GLOBAL"
+}
+
+function process_dto() {
+    local CLASS_NAME=$1
+    local JAVA_PACKAGE=$2
+    shift 2
+    local OPTIONS=("$@")
+
+    local is_record=false
+    for opt in "${OPTIONS[@]}"; do
+        case "$opt" in
+            --record) is_record=true ;;
+            --force) ;; # déjà géré globalement
+            *) echo "⚠ Option inconnue pour dto: $opt" ;;
+        esac
+    done
+
+    if [ "$is_record" = true ]; then
+        create_file "$BASE_DIR/dto/record" "${CLASS_NAME}Record.java" "package $JAVA_PACKAGE.dto.record;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+
+@Schema(description = \"Enregistrement de ${CLASS_NAME}\")
+public record ${CLASS_NAME}Record(
+    // Définir les champs du record ici
+) {}" "$FORCE_GLOBAL"
+    else
         create_file "$BASE_DIR/dto" "${CLASS_NAME}DTO.java" "package $JAVA_PACKAGE.dto;
 
 public class ${CLASS_NAME}DTO {
     // Propriétés du DTO
-}"
-        ;;
-    mapper)
-        if [ "$OPTION" == "--init" ]; then
-            create_file "$BASE_DIR/dto/mapper" "EntityMapper.java" "package $JAVA_PACKAGE.dto.mapper;
+}" "$FORCE_GLOBAL"
+    fi
+}
+
+function process_mapper() {
+    local CLASS_NAME=$1
+    local JAVA_PACKAGE=$2
+    shift 2
+    local OPTIONS=("$@")
+
+    local is_init=false
+    for opt in "${OPTIONS[@]}"; do
+        case "$opt" in
+            --init) is_init=true ;;
+            --force) ;; # déjà géré globalement
+            *) echo "⚠ Option inconnue pour mapper: $opt" ;;
+        esac
+    done
+
+    if [ "$is_init" = true ]; then
+        create_file "$BASE_DIR/mapper" "EntityMapper.java" "package $JAVA_PACKAGE.mapper;
 
 import java.util.List;
 import org.mapstruct.BeanMapping;
@@ -224,128 +490,224 @@ public interface EntityMapper<D, E> {
     @Named(\"partialUpdate\")
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     void partialUpdate(@MappingTarget E entity, D dto);
-}"
-        else
-            create_file "$BASE_DIR/dto/mapper" "${CLASS_NAME}Mapper.java" "package $JAVA_PACKAGE.dto.mapper;
+}" "$FORCE_GLOBAL"
+    else
+        create_file "$BASE_DIR/mapper" "${CLASS_NAME}Mapper.java" "package $JAVA_PACKAGE.mapper;
 
 import org.mapstruct.Mapper;
+import $JAVA_PACKAGE.dto.${CLASS_NAME}DTO;
+import $JAVA_PACKAGE.domain.entity.${CLASS_NAME};
 
 @Mapper(componentModel = \"spring\")
-public interface ${CLASS_NAME}Mapper extends EntityMapper<DTO, Entity> {
-    // Propriétés du Mapper
-}"
-        fi
-        ;;
-    domain)
-        if [ "$OPTION" == "--enum" ]; then
-            create_file "$BASE_DIR/domain/enumeration" "${CLASS_NAME}Enum.java" "package $JAVA_PACKAGE.domain.enumeration;
+public interface ${CLASS_NAME}Mapper extends EntityMapper<${CLASS_NAME}DTO, ${CLASS_NAME}> {
+    // Mappings spécifiques ici
+}" "$FORCE_GLOBAL"
+    fi
+}
 
-public enum ${CLASS_NAME}Enum {
-}"
-        else
-            create_file "$BASE_DIR/domain" "${CLASS_NAME}.java" "package $JAVA_PACKAGE.domain;
+function process_domain() {
+    local CLASS_NAME=$1
+    local JAVA_PACKAGE=$2
+    shift 2
+    local OPTIONS=("$@")
+
+    local option="entity"
+    for opt in "${OPTIONS[@]}"; do
+        case "$opt" in
+            --enum) option="enum" ;;
+            --entity) option="entity" ;;
+            --force) ;; # déjà géré globalement
+            *) echo "⚠ Option inconnue pour domain: $opt" ;;
+        esac
+    done
+
+    if [ "$option" == "enum" ]; then
+        create_file "$BASE_DIR/domain/enumeration" "${CLASS_NAME}.java" "package $JAVA_PACKAGE.domain.enumeration;
+
+public enum ${CLASS_NAME} {
+    // Valeurs de l'énumération
+}" "$FORCE_GLOBAL"
+    else
+        create_file "$BASE_DIR/domain/entity" "${CLASS_NAME}.java" "package $JAVA_PACKAGE.domain.entity;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 import java.util.UUID;
+
 @Entity
+@Table(name = \"${NAME,,}\")
 public class ${CLASS_NAME} {
+
     @Id
     @GeneratedValue
     @Column(name = \"id\")
     private UUID id;
-}"
-        fi
-        ;;
-    repository)
-        create_file "$BASE_DIR/repository" "${CLASS_NAME}Repository.java" "package $JAVA_PACKAGE.repository;
 
-import java.util.UUID;
+    @Column(name = \"created_date\")
+    private LocalDateTime createdDate = LocalDateTime.now();
+
+    // Ajouter d'autres colonnes ici
+
+    // Getters et setters
+    public UUID getId() {
+        return id;
+    }
+
+    public void setId(UUID id) {
+        this.id = id;
+    }
+
+    public LocalDateTime getCreatedDate() {
+        return createdDate;
+    }
+
+    public void setCreatedDate(LocalDateTime createdDate) {
+        this.createdDate = createdDate;
+    }
+}" "$FORCE_GLOBAL"
+    fi
+}
+
+function process_repository() {
+    local CLASS_NAME=$1
+    local JAVA_PACKAGE=$2
+
+    create_file "$BASE_DIR/repository" "${CLASS_NAME}Repository.java" "package $JAVA_PACKAGE.repository;
+
 import org.springframework.data.jpa.repository.*;
 import org.springframework.stereotype.Repository;
-import $JAVA_PACKAGE.domain.${CLASS_NAME};
+import $JAVA_PACKAGE.domain.entity.${CLASS_NAME};
+import java.util.UUID;
+
 @Repository
 public interface ${CLASS_NAME}Repository extends JpaRepository<${CLASS_NAME}, UUID>, JpaSpecificationExecutor<${CLASS_NAME}> {
-}"
-        ;;
-    service)
-        # Toutes les options à partir du 4ᵉ argument
-        OPTIONS=()
-        if [ $# -ge 4 ]; then
-            OPTIONS=("${@:4}")
-        fi
-        if [ ${#OPTIONS[@]} -eq 0 ]; then
-            create_file "$BASE_DIR/service" "${CLASS_NAME}Service.java" "package $JAVA_PACKAGE.service;
+    // Méthodes de requête personnalisées ici
+}" "$FORCE_GLOBAL"
+}
 
+function process_service() {
+    local CLASS_NAME=$1
+    local JAVA_PACKAGE=$2
+    shift 2
+    local OPTIONS=("$@")
+
+    if [ ${#OPTIONS[@]} -eq 0 ]; then
+        create_file "$BASE_DIR/service" "${CLASS_NAME}Service.java" "package $JAVA_PACKAGE.service;
 
 public interface ${CLASS_NAME}Service {
-}"
-        else
-            for opt in "${OPTIONS[@]}"; do
-                case "$opt" in
-                    --mapper)
-                        create_file "$BASE_DIR/service/mapper" "${CLASS_NAME}Mapper.java" "package $JAVA_PACKAGE.service.mapper;
+    // Méthodes du service
+}" "$FORCE_GLOBAL"
+    else
+        for opt in "${OPTIONS[@]}"; do
+            case "$opt" in
+                --mapper)
+                    create_file "$BASE_DIR/service/mapper" "${CLASS_NAME}Mapper.java" "package $JAVA_PACKAGE.service.mapper;
 
-public class ${CLASS_NAME}Mapper {
-}"
-                        ;;
-                    --criteria)
-                        create_file "$BASE_DIR/service/criteria" "${CLASS_NAME}Criteria.java" "package $JAVA_PACKAGE.service.criteria;
+import org.mapstruct.Mapper;
+import $JAVA_PACKAGE.dto.${CLASS_NAME}DTO;
+import $JAVA_PACKAGE.domain.entity.${CLASS_NAME};
+
+@Mapper(componentModel = \"spring\")
+public interface ${CLASS_NAME}Mapper {
+    ${CLASS_NAME}DTO toDto(${CLASS_NAME} entity);
+    ${CLASS_NAME} toEntity(${CLASS_NAME}DTO dto);
+}" "$FORCE_GLOBAL"
+                    ;;
+                --criteria)
+                    create_file "$BASE_DIR/service/criteria" "${CLASS_NAME}Criteria.java" "package $JAVA_PACKAGE.service.criteria;
 
 public class ${CLASS_NAME}Criteria {
-}"
-                        ;;
-                    --query)
-                        create_file "$BASE_DIR/service/query" "${CLASS_NAME}QueryService.java" "package $JAVA_PACKAGE.service.query;
+    // Critères de recherche
+}" "$FORCE_GLOBAL"
+                    ;;
+                --query)
+                    create_file "$BASE_DIR/service" "${CLASS_NAME}QueryService.java" "package $JAVA_PACKAGE.service;
 
+import org.springframework.stereotype.Service;
+
+@Service
 public class ${CLASS_NAME}QueryService {
-}"
-                        ;;
-                    --implement)
-                        create_file "$BASE_DIR/service/impl" "${CLASS_NAME}ServiceImpl.java" "package $JAVA_PACKAGE.service.impl;
+    // Service de requête
+}" "$FORCE_GLOBAL"
+                    ;;
+                --implement)
+                    create_file "$BASE_DIR/service/impl" "${CLASS_NAME}ServiceImpl.java" "package $JAVA_PACKAGE.service.impl;
 
 import org.springframework.stereotype.Service;
 import $JAVA_PACKAGE.service.${CLASS_NAME}Service;
 
 @Service
 public class ${CLASS_NAME}ServiceImpl implements ${CLASS_NAME}Service {
-}"
+    // Implémentation du service
+}" "$FORCE_GLOBAL"
                     ;;
-                    --class)
-                        create_file "$BASE_DIR/service" "${CLASS_NAME}Service.java" "package $JAVA_PACKAGE.service;
+                --class)
+                    create_file "$BASE_DIR/service" "${CLASS_NAME}Service.java" "package $JAVA_PACKAGE.service;
 
 import org.springframework.stereotype.Service;
 
 @Service
 public class ${CLASS_NAME}Service {
-}"
+    // Service sous forme de classe
+}" "$FORCE_GLOBAL"
                     ;;
-                    *)
-                        echo "⚠ Option inconnue : $opt"
-                        ;;
-                esac
-            done
-        fi
-        ;;
-    rest)
-        create_file "$BASE_DIR/web/rest" "${CLASS_NAME}Resource.java" "package $JAVA_PACKAGE.web.rest;
+                --force) ;; # déjà géré globalement
+                *)
+                    echo "⚠ Option inconnue pour service: $opt"
+                    ;;
+            esac
+        done
+    fi
+}
+
+function process_rest() {
+    local CLASS_NAME=$1
+    local JAVA_PACKAGE=$2
+    local NAME=$3
+
+    create_file "$BASE_DIR/web/rest" "${CLASS_NAME}Resource.java" "package $JAVA_PACKAGE.web.rest;
 
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.ResponseEntity;
 
 @RestController
-@RequestMapping(\"/api\")
+@RequestMapping(\"/api/${NAME,,}\")
 public class ${CLASS_NAME}Resource {
-}"
-       ;;
-    changelog)
-       if [ "$OPTION" == "--init" ]; then
-                  # Créer le fichier master.xml
-                  create_file "$RESOURCES_DIR/db" "master.xml" "<?xml version=\"1.0\" encoding=\"utf-8\"?>
+
+    @GetMapping
+    public ResponseEntity<String> getAll() {
+        return ResponseEntity.ok(\"Get all ${NAME}\");
+    }
+
+    // Ajouter d'autres endpoints ici
+}" "$FORCE_GLOBAL"
+}
+
+function process_changelog() {
+    local NAME=$1
+    shift 1
+    local OPTIONS=("$@")
+
+    local option="changelog"
+    for opt in "${OPTIONS[@]}"; do
+        case "$opt" in
+            --init) option="init" ;;
+            --data) option="data" ;;
+            --sql) option="sql" ;;
+            --force) ;; # déjà géré globalement
+            *) echo "⚠ Option inconnue pour changelog: $opt" ;;
+        esac
+    done
+
+    case "$option" in
+        init)
+            create_file "$RESOURCES_DIR/db/changelog" "master.xml" "<?xml version=\"1.0\" encoding=\"utf-8\"?>
 <databaseChangeLog
     xmlns=\"http://www.liquibase.org/xml/ns/dbchangelog\"
     xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"
     xsi:schemaLocation=\"http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd\">
 
-    <!-- Changelog Liquibase initial
+    <!-- Changelog Liquibase initial -->
     <property name=\"now\" value=\"current_timestamp\" dbms=\"postgresql\"/>
     <property name=\"floatType\" value=\"float4\" dbms=\"postgresql\"/>
     <property name=\"clobType\" value=\"clob\" dbms=\"postgresql\"/>
@@ -354,46 +716,147 @@ public class ${CLASS_NAME}Resource {
     <property name=\"datetimeType\" value=\"datetime\" dbms=\"postgresql\"/>
     <property name=\"timeType\" value=\"time(6)\" dbms=\"postgresql\"/>
 
-    <include file=\"changelog/mon-fichier.xml\" relativeToChangelogFile=\"false\"/>
-    -->
+    <!-- Inclure les changelogs ici -->
+    <!-- <include file=\"db/changelog/changes/*.xml\" relativeToChangelogFile=\"true\"/> -->
 
-</databaseChangeLog>"
+</databaseChangeLog>" "$FORCE_GLOBAL"
+            ;;
+        data)
+            timestamp=$(date +"%Y%m%d%H%M%S")
+            create_file "$RESOURCES_DIR/db/data" "${timestamp}_${NAME}.csv" "# Données pour ${NAME}
+# ID,NAME,CREATED_DATE
+1,${NAME},$(date +"%Y-%m-%d %H:%M:%S")" "$FORCE_GLOBAL"
+            ;;
+        sql)
+            timestamp=$(date +"%Y%m%d%H%M%S")
+            create_file "$RESOURCES_DIR/db/sql" "${timestamp}_${NAME}.sql" "-- Script SQL pour ${NAME}
+-- ${timestamp}
 
-      elif [ "$OPTION" == "--data" ]; then
-          timestamp=$(date +"%Y%m%d%H%M%S")
-          create_file "$RESOURCES_DIR/db/data" "${timestamp}_$NAME.data.csv" "# CSV ${timestamp}_$NAME.data.csv de données pour $NAME"
-      elif [ "$OPTION" == "--sql" ]; then
-          timestamp=$(date +"%Y%m%d%H%M%S")
-          create_file "$RESOURCES_DIR/db/request-sql" "${timestamp}_$NAME.request.sql" "-- Requête SQL ${timestamp}_$NAME.request.sql pour $NAME"
-      else
-        timestamp=$(date +"%Y%m%d%H%M%S")
-        create_file "$RESOURCES_DIR/db/changelog" "${timestamp}_$NAME.xml" "<?xml version=\"1.0\" encoding=\"utf-8\"?>
+-- CREATE TABLE IF NOT EXISTS ${NAME} (
+--     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--     name VARCHAR(255) NOT NULL,
+--     created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- );
+
+-- INSERT INTO ${NAME} (name) VALUES ('exemple');" "$FORCE_GLOBAL"
+            ;;
+        *)
+            timestamp=$(date +"%Y%m%d%H%M%S")
+            create_file "$RESOURCES_DIR/db/changelog/changes" "${timestamp}_${NAME}.xml" "<?xml version=\"1.0\" encoding=\"utf-8\"?>
 <databaseChangeLog
     xmlns=\"http://www.liquibase.org/xml/ns/dbchangelog\"
     xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"
     xsi:schemaLocation=\"http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd\">
 
-    <!-- Changelog Liquibase ${timestamp}_$NAME.xml -->
-        <changeSet id=\"${timestamp}-1\" author=\"auteur\">
-        </changeSet>
-</databaseChangeLog>"
-      fi
-      ;;
+    <!-- Changelog pour ${NAME} -->
+    <changeSet id=\"${timestamp}-1\" author=\"${USER:-system}\">
+        <comment>Création de la table ${NAME}</comment>
+        <!--
+        <createTable tableName=\"${NAME}\">
+            <column name=\"id\" type=\"UUID\">
+                <constraints primaryKey=\"true\" nullable=\"false\"/>
+            </column>
+            <column name=\"created_date\" type=\"TIMESTAMP\" defaultValueComputed=\"CURRENT_TIMESTAMP\"/>
+        </createTable>
+        -->
+    </changeSet>
+</databaseChangeLog>" "$FORCE_GLOBAL"
+            ;;
+    esac
+}
 
-    application)
-        profile=${NAME:-"application"}
-        case "$OPTION" in
-            --properties)
-                create_file "$RESOURCES_DIR/config" "application-$profile.properties" "# Configuration $profile"
+function process_application() {
+    local PROFILE=$1
+    shift 1
+    local OPTIONS=("$@")
+
+    local extension="yml"
+    for opt in "${OPTIONS[@]}"; do
+        case "$opt" in
+            --properties) extension="properties" ;;
+            --yml) extension="yml" ;;
+            --force) ;; # déjà géré globalement
+            *) echo "⚠ Option inconnue pour application: $opt" ;;
+        esac
+    done
+
+    if [ "$extension" == "properties" ]; then
+        create_file "$RESOURCES_DIR" "application-${PROFILE}.properties" "# Configuration Spring Boot - Profile: ${PROFILE}
+server.port=8080
+spring.application.name=${PROFILE}
+# Configuration datasource
+# spring.datasource.url=jdbc:postgresql://localhost:5432/${PROFILE}
+# spring.datasource.username=username
+# spring.datasource.password=password" "$FORCE_GLOBAL"
+    else
+        create_file "$RESOURCES_DIR" "application-${PROFILE}.yml" "# Configuration Spring Boot - Profile: ${PROFILE}
+server:
+  port: 8080
+
+spring:
+  application:
+    name: ${PROFILE}
+  datasource:
+    url: jdbc:postgresql://localhost:5432/${PROFILE}
+    username: username
+    password: password
+
+logging:
+  level:
+    com.example: DEBUG" "$FORCE_GLOBAL"
+    fi
+}
+
+# Point d'entrée principal
+main() {
+    # Vérifier si aucun argument n'est fourni
+    if [ $# -eq 0 ]; then
+        show_help
+        exit 0
+    fi
+
+    echo "=== DEBUG START ===" >&2
+    echo "Original args: $@" >&2
+
+    # Traiter les options globales directement dans main
+    local remaining_args=()
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --force)
+                FORCE_GLOBAL=true
+                echo "DEBUG: Set FORCE_GLOBAL=true" >&2
+                shift
+                ;;
+            --package=*)
+                CUSTOM_PACKAGE="${1#--package=}"
+                echo "DEBUG: Set CUSTOM_PACKAGE='$CUSTOM_PACKAGE'" >&2
+                shift
+                ;;
+            --help)
+                show_help
+                exit 0
                 ;;
             *)
-                create_file "$RESOURCES_DIR/config" "application-$profile.yml" "# Configuration $profile"
+                remaining_args+=("$1")
+                shift
                 ;;
         esac
-        ;;
-    *)
-        echo "✘ Sous-commande invalide : $SUBCOMMAND"
-        show_help
-        exit 1
-        ;;
-esac
+    done
+
+    echo "DEBUG: CUSTOM_PACKAGE='$CUSTOM_PACKAGE'" >&2
+    echo "DEBUG: FORCE_GLOBAL='$FORCE_GLOBAL'" >&2
+    echo "DEBUG: Remaining args: ${remaining_args[@]}" >&2
+    echo "=== DEBUG END ===" >&2
+
+    # Réinitialiser les arguments avec les arguments restants
+    set -- "${remaining_args[@]}"
+
+    # Initialiser le package
+    initialize_package
+
+    # Traiter la commande
+    process_command "$@"
+}
+
+# Lancer le script
+main "$@"
