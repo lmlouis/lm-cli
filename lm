@@ -1,14 +1,17 @@
 #!/bin/bash
 
-# Résout le chemin absolu du script
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-if [ ! -f "$SCRIPT_DIR/java.sh" ]; then
-    echo "Le fichier java.sh est introuvable dans $SCRIPT_DIR"
+# Déterminer SCRIPT_DIR de manière robuste
+if [ -f "$HOME/.lm-cli/java.sh" ]; then
+    # Installation standard
+    SCRIPT_DIR="$HOME/.lm-cli"
+elif [ -f "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/java.sh" ]; then
+    # Installation portable
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+else
+    echo "❌ Erreur: lm-cli non installé ou corrompu" >&2
+    echo "💡 Exécutez: curl -fsSL https://raw.githubusercontent.com/lmlouis/lm-cli/main/install.sh | bash" >&2
     exit 1
 fi
 
-chmod +x "$SCRIPT_DIR/java.sh"
-
-# Exécuter le script directement - il utilisera le répertoire courant de l'utilisateur
-"$SCRIPT_DIR/java.sh" "$@"
+# Exécuter le script principal
+exec "$SCRIPT_DIR/java.sh" "$@"

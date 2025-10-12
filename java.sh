@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # fichier java.sh
-# Variables globales
 export POM_FILE="pom.xml"
 export FORCE_GLOBAL=false
 export CUSTOM_PACKAGE=""
