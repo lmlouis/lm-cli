@@ -96,15 +96,36 @@ function update_cli() {
         echo "Version actuelle: $current_version"
     fi
 
-    # Si le script d'installation est disponible, l'utiliser
-    if [ -f "$SCRIPT_DIR/install.sh" ]; then
+    # Utiliser le script update.sh s'il existe
+    if [ -f "$SCRIPT_DIR/update.sh" ]; then
+        echo "📦 Mise à jour via le script de mise à jour..."
+        bash "$SCRIPT_DIR/update.sh" --force
+    # Sinon utiliser install.sh avec les bonnes options
+    elif [ -f "$SCRIPT_DIR/install.sh" ]; then
         echo "📦 Mise à jour via le script d'installation..."
-        bash "$SCRIPT_DIR/install.sh" --force
+        local latest_version=$(get_latest_release)
+        echo "📥 Installation de la version $latest_version..."
+        bash "$SCRIPT_DIR/install.sh" -v "$latest_version"
     else
-        echo "❌ Script d'installation non trouvé dans $SCRIPT_DIR"
+        echo "❌ Aucun script de mise à jour trouvé dans $SCRIPT_DIR"
         echo "ℹ️  Téléchargez la dernière version depuis:"
         echo "   https://github.com/lmlouis/lm-cli/releases"
         echo "   ou exécutez: curl -fsSL https://raw.githubusercontent.com/lmlouis/lm-cli/main/install.sh | bash"
+    fi
+}
+
+# Fonction pour récupérer la dernière release depuis GitHub
+function get_latest_release() {
+    local repo_owner="lmlouis"
+    local repo_name="lm-cli"
+    local api_url="https://api.github.com/repos/$repo_owner/$repo_name/releases/latest"
+
+    if command -v curl &> /dev/null; then
+        curl -s $api_url | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/'
+    elif command -v wget &> /dev/null; then
+        wget -q -O - $api_url | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/'
+    else
+        echo "latest"
     fi
 }
 

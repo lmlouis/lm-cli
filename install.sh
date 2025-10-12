@@ -94,6 +94,31 @@ get_latest_release() {
     fi
 }
 
+# Fonction pour mettre à jour lm-cli
+function update_cli() {
+    echo "🔍 Recherche de mises à jour..."
+
+    local current_version="unknown"
+    local version_file="$SCRIPT_DIR/version.txt"
+
+    if [ -f "$version_file" ]; then
+        current_version=$(cat "$version_file")
+        echo "Version actuelle: $current_version"
+    fi
+
+    # Utiliser install.sh avec la dernière version
+    if [ -f "$SCRIPT_DIR/install.sh" ]; then
+        echo "📦 Mise à jour via le script d'installation..."
+        echo "ℹ️  Exécution de: $SCRIPT_DIR/install.sh"
+        bash "$SCRIPT_DIR/install.sh"
+    else
+        echo "❌ Script d'installation non trouvé dans $SCRIPT_DIR"
+        echo "ℹ️  Téléchargez la dernière version depuis:"
+        echo "   https://github.com/lmlouis/lm-cli/releases"
+        echo "   ou exécutez: curl -fsSL https://raw.githubusercontent.com/lmlouis/lm-cli/main/install.sh | bash"
+    fi
+}
+
 # Récupération de toutes les releases
 get_all_releases() {
     local api_url="https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/releases"
