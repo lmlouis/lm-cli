@@ -56,8 +56,31 @@ function create_version_file_if_missing() {
     local version_file="$SCRIPT_DIR/version.txt"
 
     if [ ! -f "$version_file" ]; then
-        echo "1.1.2" > "$version_file"
-        echo "✅ Fichier version.txt créé avec la version 1.1.2"
+        echo "1.1.3" > "$version_file"
+        echo "✅ Fichier version.txt créé avec la version 1.1.3"
+    fi
+}
+
+# Fonction pour afficher la version
+function show_version() {
+    local version_file="$SCRIPT_DIR/version.txt"
+
+    if [ -f "$version_file" ]; then
+        local version=$(cat "$version_file")
+        echo "lm-cli version $version"
+    else
+        # Essayer de trouver version.txt dans le répertoire d'installation
+        local install_version_file="$HOME/.lm-cli/version.txt"
+        if [ -f "$install_version_file" ]; then
+            local version=$(cat "$install_version_file")
+            echo "lm-cli version $version"
+        else
+            echo "lm-cli version inconnue"
+            echo "ℹ️  Le fichier version.txt n'a pas été trouvé"
+            echo "📁 Recherché dans:"
+            echo "   - $version_file"
+            echo "   - $install_version_file"
+        fi
     fi
 }
 
