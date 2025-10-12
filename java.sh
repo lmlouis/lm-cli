@@ -1,60 +1,12 @@
 #!/bin/bash
 
+# fichier java.sh
 # Variables globales
 export POM_FILE="pom.xml"
 export FORCE_GLOBAL=false
 export CUSTOM_PACKAGE=""
 export BASE_DIR=""
 export RESOURCES_DIR="src/main/resources"
-
-# Fonction d'auto-complétion
-function _lm_completion() {
-    local cur prev words cword
-    _init_completion || return
-
-    case ${prev} in
-        lm)
-            COMPREPLY=($(compgen -W "create" -- "$cur"))
-            ;;
-        create)
-            COMPREPLY=($(compgen -W "config exception constant security pagination filter dto mapper domain repository service rest changelog application" -- "$cur"))
-            ;;
-        config|exception|constant|security|dto|mapper|domain|repository|service|rest|changelog|application)
-            COMPREPLY=($(compgen -W "--force --package=" -- "$cur"))
-            ;;
-        --package)
-            COMPREPLY=($(compgen -W "statistics security common util" -- "$cur"))
-            ;;
-        *)
-            case ${words[2]} in
-                config)
-                    COMPREPLY=($(compgen -W "--properties" -- "$cur"))
-                    ;;
-                dto)
-                    COMPREPLY=($(compgen -W "--record" -- "$cur"))
-                    ;;
-                mapper)
-                    COMPREPLY=($(compgen -W "--init" -- "$cur"))
-                    ;;
-                domain)
-                    COMPREPLY=($(compgen -W "--enum --entity" -- "$cur"))
-                    ;;
-                service)
-                    COMPREPLY=($(compgen -W "--mapper --criteria --query --implement --class" -- "$cur"))
-                    ;;
-                changelog)
-                    COMPREPLY=($(compgen -W "--init --data --sql" -- "$cur"))
-                    ;;
-                application)
-                    COMPREPLY=($(compgen -W "--yml --properties" -- "$cur"))
-                    ;;
-            esac
-            ;;
-    esac
-}
-
-# Enregistrer l'auto-complétion
-complete -F _lm_completion lm
 
 # Fonction d'affichage d'aide
 function show_help() {
@@ -96,31 +48,55 @@ function capitalize() {
 
 # Fonction pour récupérer le package name de base
 function get_base_package_name() {
-    if [ ! -f "$POM_FILE" ]; then
-        echo "✘ Fichier pom.xml introuvable dans le dossier courant." >&2
+    # Essayer de trouver le pom.xml dans le répertoire courant ou les parents
+    local current_dir="$PWD"
+    local pom_file=""
+
+    # Rechercher le pom.xml dans le répertoire courant et les parents
+    while [[ "$current_dir" != "" && ! -e "$current_dir/pom.xml" ]]; do
+        current_dir="${current_dir%/*}"
+    done
+
+    if [[ -n "$current_dir" && -f "$current_dir/pom.xml" ]]; then
+        pom_file="$current_dir/pom.xml"
+        echo "DEBUG: Found pom.xml at: $pom_file" >&2
+    else
+        echo "✘ Fichier pom.xml introuvable dans le dossier courant ou les répertoires parents." >&2
+        echo "✘ Assurez-vous d'être dans un projet Spring Boot avec un fichier pom.xml" >&2
         exit 1
     fi
 
     # Essayer d'abord avec Maven
+    local group_id=""
+    local artifact_id=""
+
+    # Changer temporairement vers le répertoire du pom.xml pour exécuter Maven
+    local original_dir="$PWD"
+    cd "$(dirname "$pom_file")"
+
     group_id=$(mvn help:evaluate -Dexpression=project.groupId -q -DforceStdout 2>/dev/null)
     artifact_id=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout 2>/dev/null)
 
+    # Revenir au répertoire original
+    cd "$original_dir"
+
     # Fallback sur xmllint si Maven échoue
     if [ -z "$group_id" ]; then
-        group_id=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='groupId']/text()" "$POM_FILE" 2>/dev/null || xmllint --xpath "/*[local-name()='project']/*[local-name()='parent']/*[local-name()='groupId']/text()" "$POM_FILE" 2>/dev/null)
+        group_id=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='groupId']/text()" "$pom_file" 2>/dev/null || xmllint --xpath "/*[local-name()='project']/*[local-name()='parent']/*[local-name()='groupId']/text()" "$pom_file" 2>/dev/null)
     fi
 
     if [ -z "$artifact_id" ]; then
-        artifact_id=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='artifactId']/text()" "$POM_FILE" 2>/dev/null)
+        artifact_id=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='artifactId']/text()" "$pom_file" 2>/dev/null)
     fi
 
     if [ -z "$group_id" ] || [ -z "$artifact_id" ]; then
         echo "✘ Impossible de lire groupId ou artifactId depuis pom.xml" >&2
+        echo "✘ Vérifiez que votre pom.xml est valide" >&2
         exit 1
     fi
 
-    # Nettoyer l'artifact_id (remplacer les tirets)
-    local clean_artifact_id="${artifact_id//-/_}"
+    # Nettoyer l'artifact_id (remplacer les tirets par des points)
+    local clean_artifact_id="${artifact_id//-/.}"
     echo "$group_id.$clean_artifact_id"
 }
 
@@ -183,13 +159,24 @@ function parse_global_options() {
 
 # Initialisation du package et des répertoires
 function initialize_package() {
-    local base_package=$(get_base_package_name)
+    local base_package=""
 
-    # Si un package personnalisé est spécifié, on l'ajoute au package de base
-    if [ -n "$CUSTOM_PACKAGE" ]; then
-        PACKAGE_NAME="${base_package}.${CUSTOM_PACKAGE}"
+    # Essayer de récupérer le package de base depuis pom.xml
+    if base_package=$(get_base_package_name); then
+        # Si un package personnalisé est spécifié, on l'ajoute au package de base
+        if [ -n "$CUSTOM_PACKAGE" ]; then
+            PACKAGE_NAME="${base_package}.${CUSTOM_PACKAGE}"
+        else
+            PACKAGE_NAME="$base_package"
+        fi
     else
-        PACKAGE_NAME="$base_package"
+        # Fallback si pas de pom.xml trouvé
+        if [ -n "$CUSTOM_PACKAGE" ]; then
+            PACKAGE_NAME="com.example.${CUSTOM_PACKAGE}"
+        else
+            PACKAGE_NAME="com.example.application"
+        fi
+        echo "⚠ Utilisation du package par défaut: $PACKAGE_NAME" >&2
     fi
 
     # Nettoyer le package name (supprimer les tirets)

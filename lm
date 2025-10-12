@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Résout le chemin absolu du script, même si lancé depuis un autre dossier
+# fichier lm  : Résout le chemin absolu du script, même si lancé depuis un autre dossier
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [ ! -f "$SCRIPT_DIR/java.sh" ]; then
