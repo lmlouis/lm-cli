@@ -10,7 +10,7 @@ export RESOURCES_DIR="src/main/resources"
 
 # Fonction d'affichage d'aide
 function show_help() {
-    echo "Usage: $0 [OPTIONS] <command> <subcommand> <name>"
+    echo "Usage: $0 [OPTIONS] <command> [subcommand] [name]"
     echo ""
     echo "Options globales:"
     echo "  --force           Écraser les fichiers existants"
@@ -33,11 +33,85 @@ function show_help() {
     echo "  create changelog <name> [--init | --data | --sql]"
     echo "  create application <profile> [--yml | --properties]"
     echo ""
+    echo "Commandes de gestion:"
+    echo "  update            Mettre à jour lm-cli"
+    echo "  install [version] Installer une version spécifique"
+    echo "  uninstall         Désinstaller lm-cli"
+    echo "  version           Afficher la version"
+    echo ""
     echo "Exemples:"
     echo "  $0 create service UserService --mapper --implement"
     echo "  $0 --force create domain Product --entity"
     echo "  $0 --package=com.example create rest UserResource"
+    echo "  $0 update"
+    echo "  $0 install 1.0.8"
+    echo "  $0 version"
     echo ""
+}
+
+# Fonction pour afficher la version
+function show_version() {
+    local version_file="$SCRIPT_DIR/version.txt"
+    if [ -f "$version_file" ]; then
+        local version=$(cat "$version_file")
+        echo "lm-cli version $version"
+    else
+        echo "lm-cli version inconnue"
+    fi
+}
+
+# Fonction pour mettre à jour lm-cli
+function update_cli() {
+    echo "🔍 Recherche de mises à jour..."
+
+    local current_version=""
+    if [ -f "$SCRIPT_DIR/version.txt" ]; then
+        current_version=$(cat "$SCRIPT_DIR/version.txt")
+    fi
+
+    # Si le script d'installation est disponible, l'utiliser
+    if [ -f "$SCRIPT_DIR/install.sh" ]; then
+        echo "📦 Mise à jour via le script d'installation..."
+        bash "$SCRIPT_DIR/install.sh" --force
+    else
+        echo "❌ Script d'installation non trouvé"
+        echo "ℹ️  Téléchargez la dernière version depuis:"
+        echo "   https://github.com/lmlouis/lm-cli/releases"
+    fi
+}
+
+# Fonction pour installer une version spécifique
+function install_version() {
+    local version=$1
+    echo "📦 Installation de la version $version..."
+
+    if [ -f "$SCRIPT_DIR/install.sh" ]; then
+        if [ -n "$version" ] && [ "$version" != "latest" ]; then
+            bash "$SCRIPT_DIR/install.sh" --version "$version"
+        else
+            bash "$SCRIPT_DIR/install.sh"
+        fi
+    else
+        echo "❌ Script d'installation non trouvé"
+        echo "ℹ️  Téléchargez manuellement depuis:"
+        echo "   https://github.com/lmlouis/lm-cli/releases"
+    fi
+}
+
+# Fonction pour désinstaller
+function uninstall_cli() {
+    echo "🗑️  Désinstallation de lm-cli..."
+
+    if [ -f "$SCRIPT_DIR/uninstall.sh" ]; then
+        bash "$SCRIPT_DIR/uninstall.sh"
+    elif [ -f "$SCRIPT_DIR/install.sh" ]; then
+        bash "$SCRIPT_DIR/install.sh" --uninstall
+    else
+        echo "❌ Script de désinstallation non trouvé"
+        echo "ℹ️  Supprimez manuellement les fichiers:"
+        echo "   - $SCRIPT_DIR"
+        echo "   - $HOME/.local/bin/lm (ou /usr/local/bin/lm)"
+    fi
 }
 
 # Fonction de capitalisation
@@ -196,13 +270,38 @@ function process_command() {
     local NAME=${command_args[2]}
     local OPTIONS=("${command_args[@]:3}")
 
+    # Commandes qui ne nécessitent pas de projet Spring Boot
+    case "$COMMAND" in
+        update)
+            update_cli
+            return 0
+            ;;
+        install)
+            install_version "$SUBCOMMAND"
+            return 0
+            ;;
+        uninstall)
+            uninstall_cli
+            return 0
+            ;;
+        version)
+            show_version
+            return 0
+            ;;
+        --help|-h)
+            show_help
+            return 0
+            ;;
+    esac
+
+    # Les commandes create nécessitent un projet Spring Boot
     if [ "$COMMAND" != "create" ]; then
         echo "✘ Commande invalide : $COMMAND"
         show_help
         exit 1
     fi
 
-    # Validation des arguments minimum
+    # Validation des arguments minimum pour create
     if [ -z "$SUBCOMMAND" ]; then
         echo "✘ Sous-commande manquante"
         show_help
@@ -218,6 +317,9 @@ function process_command() {
             fi
             ;;
     esac
+
+    # Initialiser le package uniquement pour les commandes create
+    initialize_package
 
     local CLASS_NAME=$(capitalize "$NAME")
     local JAVA_PACKAGE="$PACKAGE_NAME"
