@@ -33,19 +33,77 @@
 
 ## 📦 Installation
 
-1. **Télécharger le script** :
+**Linux/macOS :**
 ```bash
-wget https://raw.githubusercontent.com/votre-repo/lm-cli/main/lm
-chmod +x lm
+curl -fsSL https://raw.githubusercontent.com/lmlouis/lm-cli/main/install.sh | bash
 ```
 
-2. **Activer l'auto-complétion** (optionnel) :
-```bash
-echo "source $(pwd)/lm" >> ~/.bashrc
-# ou pour Zsh
-echo "source $(pwd)/lm" >> ~/.zshrc
+**Windows :**
+```powershell
+# Téléchargez et exécutez le script d'installation
+curl -fsSL -o install.ps1 https://raw.githubusercontent.com/lmlouis/lm-cli/main/install.ps1
+.\install.ps1
 ```
 
+### Méthode alternative - Installation manuelle
+
+1. **Téléchargez la dernière release** depuis [GitHub Releases](https://github.com/lmlouis/lm-cli/releases)
+
+2. **Extrayez l'archive** dans le dossier souhaité
+
+3. **Rendez les scripts exécutables** :
+```bash
+chmod +x lm java.sh
+```
+
+4. **Ajoutez au PATH** (optionnel) :
+```bash
+# Pour l'utiliser globalement, ajoutez un alias ou déplacez le script
+sudo mv lm /usr/local/bin/
+# Ou créez un lien symbolique
+sudo ln -s "$(pwd)/lm" /usr/local/bin/lm
+```
+
+### Vérification de l'installation
+
+Une fois installé, vérifiez que la commande fonctionne :
+
+```bash
+lm --help
+```
+
+## 🛠 Utilisation
+
+Placez-vous dans votre projet Spring Boot et utilisez les commandes :
+
+```bash
+cd mon-projet-spring
+lm create service UserService --mapper --implement
+lm create domain User --entity
+```
+
+### Mise à jour
+
+Pour mettre à jour vers la dernière version :
+
+```bash
+lm update
+```
+
+### Désinstallation
+
+```bash
+lm uninstall
+```
+
+---
+
+**Corrections apportées :**
+- ✅ Suppression de la ligne "Téléchargez d'abord le script d'installation" en double
+- ✅ Correction de la syntaxe PowerShell avec `.\install.ps1` au lieu de `.\install.ps1 puis`
+- ✅ Ajout de la méthode d'installation manuelle
+- ✅ Clarification des étapes de vérification
+- ✅ Organisation plus logique des sections
 ## 🛠 Utilisation
 
 ### Exemples de base

@@ -148,6 +148,7 @@ function parse_global_options() {
     local args=("$@")
     local remaining_args=()
 
+    # shellcheck disable=SC2145
     echo "DEBUG: Parsing args: ${args[@]}" >&2
 
     for arg in "${args[@]}"; do
@@ -170,6 +171,7 @@ function parse_global_options() {
         esac
     done
 
+    # shellcheck disable=SC2145
     echo "DEBUG: Remaining args: ${remaining_args[@]}" >&2
 
     # Retourner les valeurs via des variables globales
@@ -816,6 +818,7 @@ main() {
     fi
 
     echo "=== DEBUG START ===" >&2
+    # shellcheck disable=SC2145
     echo "Original args: $@" >&2
 
     # Traiter les options globales directement dans main
@@ -845,6 +848,7 @@ main() {
 
     echo "DEBUG: CUSTOM_PACKAGE='$CUSTOM_PACKAGE'" >&2
     echo "DEBUG: FORCE_GLOBAL='$FORCE_GLOBAL'" >&2
+    # shellcheck disable=SC2145
     echo "DEBUG: Remaining args: ${remaining_args[@]}" >&2
     echo "=== DEBUG END ===" >&2
 
