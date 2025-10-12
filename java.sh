@@ -8,15 +8,56 @@ export CUSTOM_PACKAGE=""
 export BASE_DIR=""
 export RESOURCES_DIR="src/main/resources"
 
-# Fonction pour afficher la version
-function show_version() {
-    local version_file="$(dirname "${BASH_SOURCE[0]}")/version.txt"
-    if [ -f "$version_file" ]; then
-        local version=$(cat "$version_file")
-        echo "lm-cli version $version"
-    else
-        echo "lm-cli version inconnue"
-        echo "Le fichier version.txt n'existe pas dans $(dirname "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Fonction d'affichage d'aide
+function show_help() {
+    echo "Usage: $0 [OPTIONS] <command> [subcommand] [name]"
+    echo ""
+    echo "Options globales:"
+    echo "  --force           Écraser les fichiers existants"
+    echo "  --package=NAME    Spécifier un package personnalisé"
+    echo "  --help            Afficher cette aide"
+    echo ""
+    echo "Commandes disponibles:"
+    echo "  create config <name> [--properties]"
+    echo "  create exception <name>"
+    echo "  create constant <name>"
+    echo "  create security <name>"
+    echo "  create pagination"
+    echo "  create filter"
+    echo "  create dto <name> [--record]"
+    echo "  create mapper <name> [--init]"
+    echo "  create domain <name> [--enum | --entity]"
+    echo "  create repository <name>"
+    echo "  create service <name> [--mapper | --criteria | --query | --implement | --class]"
+    echo "  create rest <name>"
+    echo "  create changelog <name> [--init | --data | --sql]"
+    echo "  create application <profile> [--yml | --properties]"
+    echo ""
+    echo "Commandes de gestion:"
+    echo "  update            Mettre à jour lm-cli"
+    echo "  install [version] Installer une version spécifique"
+    echo "  uninstall         Désinstaller lm-cli"
+    echo "  version           Afficher la version"
+    echo ""
+    echo "Exemples:"
+    echo "  $0 create service UserService --mapper --implement"
+    echo "  $0 --force create domain Product --entity"
+    echo "  $0 --package=com.example create rest UserResource"
+    echo "  $0 update"
+    echo "  $0 install 1.1.2"
+    echo "  $0 version"
+    echo ""
+}
+
+# Fonction pour créer le fichier version.txt si absent
+function create_version_file_if_missing() {
+    local version_file="$SCRIPT_DIR/version.txt"
+
+    if [ ! -f "$version_file" ]; then
+        echo "1.1.2" > "$version_file"
+        echo "✅ Fichier version.txt créé avec la version 1.1.2"
     fi
 }
 
@@ -24,20 +65,20 @@ function show_version() {
 function update_cli() {
     echo "🔍 Recherche de mises à jour..."
 
-    local script_dir="$(dirname "${BASH_SOURCE[0]}")"
     local current_version="unknown"
+    local version_file="$SCRIPT_DIR/version.txt"
 
-    if [ -f "$script_dir/version.txt" ]; then
-        current_version=$(cat "$script_dir/version.txt")
+    if [ -f "$version_file" ]; then
+        current_version=$(cat "$version_file")
         echo "Version actuelle: $current_version"
     fi
 
     # Si le script d'installation est disponible, l'utiliser
-    if [ -f "$script_dir/install.sh" ]; then
+    if [ -f "$SCRIPT_DIR/install.sh" ]; then
         echo "📦 Mise à jour via le script d'installation..."
-        bash "$script_dir/install.sh" --force
+        bash "$SCRIPT_DIR/install.sh" --force
     else
-        echo "❌ Script d'installation non trouvé dans $script_dir"
+        echo "❌ Script d'installation non trouvé dans $SCRIPT_DIR"
         echo "ℹ️  Téléchargez la dernière version depuis:"
         echo "   https://github.com/lmlouis/lm-cli/releases"
         echo "   ou exécutez: curl -fsSL https://raw.githubusercontent.com/lmlouis/lm-cli/main/install.sh | bash"
@@ -49,16 +90,14 @@ function install_version() {
     local version=$1
     echo "📦 Installation de la version $version..."
 
-    local script_dir="$(dirname "${BASH_SOURCE[0]}")"
-
-    if [ -f "$script_dir/install.sh" ]; then
+    if [ -f "$SCRIPT_DIR/install.sh" ]; then
         if [ -n "$version" ] && [ "$version" != "latest" ]; then
-            bash "$script_dir/install.sh" --version "$version"
+            bash "$SCRIPT_DIR/install.sh" --version "$version"
         else
-            bash "$script_dir/install.sh"
+            bash "$SCRIPT_DIR/install.sh"
         fi
     else
-        echo "❌ Script d'installation non trouvé dans $script_dir"
+        echo "❌ Script d'installation non trouvé dans $SCRIPT_DIR"
         echo "ℹ️  Téléchargez manuellement depuis:"
         echo "   https://github.com/lmlouis/lm-cli/releases"
         echo "   ou exécutez: curl -fsSL https://raw.githubusercontent.com/lmlouis/lm-cli/main/install.sh | bash"
@@ -69,14 +108,13 @@ function install_version() {
 function uninstall_cli() {
     echo "🗑️  Désinstallation de lm-cli..."
 
-    local script_dir="$(dirname "${BASH_SOURCE[0]}")"
     local install_dir="$HOME/.lm-cli"
     local bin_dir="$HOME/.local/bin"
 
-    if [ -f "$script_dir/uninstall.sh" ]; then
-        bash "$script_dir/uninstall.sh"
-    elif [ -f "$script_dir/install.sh" ]; then
-        bash "$script_dir/install.sh" --uninstall
+    if [ -f "$SCRIPT_DIR/uninstall.sh" ]; then
+        bash "$SCRIPT_DIR/uninstall.sh"
+    elif [ -f "$SCRIPT_DIR/install.sh" ]; then
+        bash "$SCRIPT_DIR/install.sh" --uninstall
     else
         echo "❌ Script de désinstallation non trouvé"
         echo "ℹ️  Supprimez manuellement les fichiers:"
@@ -881,6 +919,9 @@ logging:
 
 # Point d'entrée principal
 main() {
+     # Créer le fichier version.txt si absent
+    create_version_file_if_missing
+
     # Vérifier si aucun argument n'est fourni
     if [ $# -eq 0 ]; then
         show_help
