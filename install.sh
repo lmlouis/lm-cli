@@ -194,6 +194,7 @@ install_release() {
 }
 
 # Création du wrapper binaire
+# Création du wrapper binaire
 create_binary_wrapper() {
     local wrapper_path="$BIN_DIR/lm"
 
@@ -215,23 +216,21 @@ cd /d "%PWD%"
 EOF
         log_info "Wrapper Windows créé: ${wrapper_path}.bat"
     else
-        # Script shell pour Unix
+        # Script shell pour Unix - VERSION CORRIGÉE
         cat > "$wrapper_path" << 'EOF'
 #!/bin/bash
+
 SCRIPT_DIR="$HOME/.lm-cli"
-ORIGINAL_PWD="$PWD"
 
-# Changer vers le répertoire du script
-cd "$SCRIPT_DIR" || {
-    echo "Erreur: Impossible d'accéder à $SCRIPT_DIR"
+if [ ! -f "$SCRIPT_DIR/java.sh" ]; then
+    echo "Le fichier java.sh est introuvable dans $SCRIPT_DIR"
     exit 1
-}
+fi
 
-# Exécuter le script java.sh avec tous les arguments
-bash java.sh "$@"
+chmod +x "$SCRIPT_DIR/java.sh" 2>/dev/null
 
-# Revenir au répertoire original
-cd "$ORIGINAL_PWD"
+# Exécuter sans changer de répertoire
+exec "$SCRIPT_DIR/java.sh" "$@"
 EOF
         chmod +x "$wrapper_path"
         log_info "Wrapper Unix créé: $wrapper_path"
