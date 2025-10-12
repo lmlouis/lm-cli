@@ -6,16 +6,17 @@ _lm_completion() {
 
     case ${prev} in
         lm)
-            COMPREPLY=($(compgen -W "create update install uninstall --help --version" -- "$cur"))
+            COMPREPLY=($(compgen -W "create update install uninstall version --help" -- "$cur"))
             ;;
         create)
             COMPREPLY=($(compgen -W "config exception constant security pagination filter dto mapper domain repository service rest changelog application" -- "$cur"))
             ;;
-        update)
-            COMPREPLY=($(compgen -W "--latest --version" -- "$cur"))
+        update|uninstall|version)
+            # Pas d'arguments supplémentaires pour ces commandes
+            COMPREPLY=()
             ;;
         install)
-            COMPREPLY=($(compgen -W "--version --list" -- "$cur"))
+            COMPREPLY=($(compgen -W "latest" -- "$cur"))
             ;;
         config|exception|constant|security|dto|mapper|domain|repository|service|rest|changelog|application)
             COMPREPLY=($(compgen -W "--force --package=" -- "$cur"))
@@ -24,31 +25,37 @@ _lm_completion() {
             COMPREPLY=($(compgen -W "statistics security common util" -- "$cur"))
             ;;
         *)
-            case ${words[2]} in
-                config)
-                    COMPREPLY=($(compgen -W "--properties" -- "$cur"))
-                    ;;
-                dto)
-                    COMPREPLY=($(compgen -W "--record" -- "$cur"))
-                    ;;
-                mapper)
-                    COMPREPLY=($(compgen -W "--init" -- "$cur"))
-                    ;;
-                domain)
-                    COMPREPLY=($(compgen -W "--enum --entity" -- "$cur"))
-                    ;;
-                service)
-                    COMPREPLY=($(compgen -W "--mapper --criteria --query --implement --class" -- "$cur"))
-                    ;;
-                changelog)
-                    COMPREPLY=($(compgen -W "--init --data --sql" -- "$cur"))
-                    ;;
-                application)
-                    COMPREPLY=($(compgen -W "--yml --properties" -- "$cur"))
+            case ${words[1]} in
+                create)
+                    case ${words[2]} in
+                        config)
+                            COMPREPLY=($(compgen -W "--properties" -- "$cur"))
+                            ;;
+                        dto)
+                            COMPREPLY=($(compgen -W "--record" -- "$cur"))
+                            ;;
+                        mapper)
+                            COMPREPLY=($(compgen -W "--init" -- "$cur"))
+                            ;;
+                        domain)
+                            COMPREPLY=($(compgen -W "--enum --entity" -- "$cur"))
+                            ;;
+                        service)
+                            COMPREPLY=($(compgen -W "--mapper --criteria --query --implement --class" -- "$cur"))
+                            ;;
+                        changelog)
+                            COMPREPLY=($(compgen -W "--init --data --sql" -- "$cur"))
+                            ;;
+                        application)
+                            COMPREPLY=($(compgen -W "--yml --properties" -- "$cur"))
+                            ;;
+                    esac
                     ;;
             esac
             ;;
     esac
 }
 
-complete -F _lm_completion lm
+complete -F _lm_completion lm 2>/dev/null || {
+    echo "Auto-completion configured. Restart your terminal or run: source ~/.bashrc" >&2
+}

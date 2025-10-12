@@ -8,55 +8,15 @@ export CUSTOM_PACKAGE=""
 export BASE_DIR=""
 export RESOURCES_DIR="src/main/resources"
 
-# Fonction d'affichage d'aide
-function show_help() {
-    echo "Usage: $0 [OPTIONS] <command> [subcommand] [name]"
-    echo ""
-    echo "Options globales:"
-    echo "  --force           Écraser les fichiers existants"
-    echo "  --package=NAME    Spécifier un package personnalisé"
-    echo "  --help            Afficher cette aide"
-    echo ""
-    echo "Commandes disponibles:"
-    echo "  create config <name> [--properties]"
-    echo "  create exception <name>"
-    echo "  create constant <name>"
-    echo "  create security <name>"
-    echo "  create pagination"
-    echo "  create filter"
-    echo "  create dto <name> [--record]"
-    echo "  create mapper <name> [--init]"
-    echo "  create domain <name> [--enum | --entity]"
-    echo "  create repository <name>"
-    echo "  create service <name> [--mapper | --criteria | --query | --implement | --class]"
-    echo "  create rest <name>"
-    echo "  create changelog <name> [--init | --data | --sql]"
-    echo "  create application <profile> [--yml | --properties]"
-    echo ""
-    echo "Commandes de gestion:"
-    echo "  update            Mettre à jour lm-cli"
-    echo "  install [version] Installer une version spécifique"
-    echo "  uninstall         Désinstaller lm-cli"
-    echo "  version           Afficher la version"
-    echo ""
-    echo "Exemples:"
-    echo "  $0 create service UserService --mapper --implement"
-    echo "  $0 --force create domain Product --entity"
-    echo "  $0 --package=com.example create rest UserResource"
-    echo "  $0 update"
-    echo "  $0 install 1.0.8"
-    echo "  $0 version"
-    echo ""
-}
-
 # Fonction pour afficher la version
 function show_version() {
-    local version_file="$SCRIPT_DIR/version.txt"
+    local version_file="$(dirname "${BASH_SOURCE[0]}")/version.txt"
     if [ -f "$version_file" ]; then
         local version=$(cat "$version_file")
         echo "lm-cli version $version"
     else
         echo "lm-cli version inconnue"
+        echo "Le fichier version.txt n'existe pas dans $(dirname "${BASH_SOURCE[0]}")"
     fi
 }
 
@@ -64,19 +24,23 @@ function show_version() {
 function update_cli() {
     echo "🔍 Recherche de mises à jour..."
 
-    local current_version=""
-    if [ -f "$SCRIPT_DIR/version.txt" ]; then
-        current_version=$(cat "$SCRIPT_DIR/version.txt")
+    local script_dir="$(dirname "${BASH_SOURCE[0]}")"
+    local current_version="unknown"
+
+    if [ -f "$script_dir/version.txt" ]; then
+        current_version=$(cat "$script_dir/version.txt")
+        echo "Version actuelle: $current_version"
     fi
 
     # Si le script d'installation est disponible, l'utiliser
-    if [ -f "$SCRIPT_DIR/install.sh" ]; then
+    if [ -f "$script_dir/install.sh" ]; then
         echo "📦 Mise à jour via le script d'installation..."
-        bash "$SCRIPT_DIR/install.sh" --force
+        bash "$script_dir/install.sh" --force
     else
-        echo "❌ Script d'installation non trouvé"
+        echo "❌ Script d'installation non trouvé dans $script_dir"
         echo "ℹ️  Téléchargez la dernière version depuis:"
         echo "   https://github.com/lmlouis/lm-cli/releases"
+        echo "   ou exécutez: curl -fsSL https://raw.githubusercontent.com/lmlouis/lm-cli/main/install.sh | bash"
     fi
 }
 
@@ -85,16 +49,19 @@ function install_version() {
     local version=$1
     echo "📦 Installation de la version $version..."
 
-    if [ -f "$SCRIPT_DIR/install.sh" ]; then
+    local script_dir="$(dirname "${BASH_SOURCE[0]}")"
+
+    if [ -f "$script_dir/install.sh" ]; then
         if [ -n "$version" ] && [ "$version" != "latest" ]; then
-            bash "$SCRIPT_DIR/install.sh" --version "$version"
+            bash "$script_dir/install.sh" --version "$version"
         else
-            bash "$SCRIPT_DIR/install.sh"
+            bash "$script_dir/install.sh"
         fi
     else
-        echo "❌ Script d'installation non trouvé"
+        echo "❌ Script d'installation non trouvé dans $script_dir"
         echo "ℹ️  Téléchargez manuellement depuis:"
         echo "   https://github.com/lmlouis/lm-cli/releases"
+        echo "   ou exécutez: curl -fsSL https://raw.githubusercontent.com/lmlouis/lm-cli/main/install.sh | bash"
     fi
 }
 
@@ -102,15 +69,29 @@ function install_version() {
 function uninstall_cli() {
     echo "🗑️  Désinstallation de lm-cli..."
 
-    if [ -f "$SCRIPT_DIR/uninstall.sh" ]; then
-        bash "$SCRIPT_DIR/uninstall.sh"
-    elif [ -f "$SCRIPT_DIR/install.sh" ]; then
-        bash "$SCRIPT_DIR/install.sh" --uninstall
+    local script_dir="$(dirname "${BASH_SOURCE[0]}")"
+    local install_dir="$HOME/.lm-cli"
+    local bin_dir="$HOME/.local/bin"
+
+    if [ -f "$script_dir/uninstall.sh" ]; then
+        bash "$script_dir/uninstall.sh"
+    elif [ -f "$script_dir/install.sh" ]; then
+        bash "$script_dir/install.sh" --uninstall
     else
         echo "❌ Script de désinstallation non trouvé"
         echo "ℹ️  Supprimez manuellement les fichiers:"
-        echo "   - $SCRIPT_DIR"
-        echo "   - $HOME/.local/bin/lm (ou /usr/local/bin/lm)"
+        echo "   - $install_dir"
+        echo "   - $bin_dir/lm"
+        echo "   - Nettoyez votre .bashrc ou .zshrc (section lm-cli)"
+
+        # Option de suppression manuelle
+        read -p "Voulez-vous supprimer manuellement? [y/N] " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            rm -rf "$install_dir"
+            rm -f "$bin_dir/lm"
+            echo "✅ Fichiers supprimés"
+        fi
     fi
 }
 
@@ -308,6 +289,9 @@ function process_command() {
         exit 1
     fi
 
+    # Pour les commandes create, initialiser le package
+    initialize_package
+
     case "$SUBCOMMAND" in
         config|exception|constant|security|dto|domain|repository|service|rest|changelog|application)
             if [ -z "$NAME" ] && [ "$SUBCOMMAND" != "pagination" ] && [ "$SUBCOMMAND" != "filter" ] && [ "$SUBCOMMAND" != "changelog" ]; then
@@ -317,9 +301,6 @@ function process_command() {
             fi
             ;;
     esac
-
-    # Initialiser le package uniquement pour les commandes create
-    initialize_package
 
     local CLASS_NAME=$(capitalize "$NAME")
     local JAVA_PACKAGE="$PACKAGE_NAME"
@@ -924,7 +905,7 @@ main() {
                 echo "DEBUG: Set CUSTOM_PACKAGE='$CUSTOM_PACKAGE'" >&2
                 shift
                 ;;
-            --help)
+            --help|-h)
                 show_help
                 exit 0
                 ;;
@@ -944,9 +925,7 @@ main() {
     # Réinitialiser les arguments avec les arguments restants
     set -- "${remaining_args[@]}"
 
-    # Initialiser le package
-    initialize_package
-
+    # NE PAS initialiser le package ici - cela sera fait dans process_command si nécessaire
     # Traiter la commande
     process_command "$@"
 }
