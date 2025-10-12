@@ -3,9 +3,11 @@
 SCRIPT_DIR="$HOME/.lm-cli"
 
 if [ ! -f "$SCRIPT_DIR/java.sh" ]; then
-    echo "❌ Erreur: lm-cli non installé" >&2
-    echo "💡 Installation: curl -fsSL https://raw.githubusercontent.com/lmlouis/lm-cli/main/install.sh | bash" >&2
+    echo "Le fichier java.sh est introuvable dans $SCRIPT_DIR"
     exit 1
 fi
 
+chmod +x "$SCRIPT_DIR/java.sh" 2>/dev/null
+
+# Exécuter sans changer de répertoire
 exec "$SCRIPT_DIR/java.sh" "$@"
