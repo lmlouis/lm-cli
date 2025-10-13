@@ -59,9 +59,9 @@ function Install-Release {
         Write-ColorOutput "Yellow" "Extraction de l'archive..."
         Expand-Archive -Path $tempFile -DestinationPath "$env:TEMP\" -Force
         
-        # Trouver le répertoire extrait (il peut avoir différents formats)
+        # Trouver le répertoire extrait
         $extractedDir = Get-ChildItem -Path "$env:TEMP" -Directory | Where-Object { $_.Name -like "lm-cli-*" } | Select-Object -First 1
-        
+
         if (-not $extractedDir) {
             Write-ColorOutput "Red" "Impossible de trouver le répertoire extrait"
             exit 1
@@ -76,26 +76,35 @@ function Install-Release {
     }
 
     # Créer le script wrapper
-    # Dans la fonction Install-Release, améliorer le wrapper
     $wrapperContent = @"
-    @echo off
-    setlocal EnableDelayedExpansion
+@echo off
+setlocal EnableDelayedExpansion
 
-    set "SCRIPT_DIR=$InstallDir"
-    set "CURRENT_DIR=%CD%"
+set "SCRIPT_DIR=$InstallDir"
+set "CURRENT_DIR=%CD%"
 
-    echo [DEBUG] Script directory: !SCRIPT_DIR!
-    echo [DEBUG] Current directory: !CURRENT_DIR!
+cd /d "!SCRIPT_DIR!"
+bash java.sh %*
+set EXIT_CODE=!ERRORLEVEL!
+cd /d "!CURRENT_DIR!"
 
-    cd /d "!SCRIPT_DIR!"
-    bash java.sh %*
-    set EXIT_CODE=!ERRORLEVEL!
-    cd /d "!CURRENT_DIR!"
-
-    exit /b !EXIT_CODE!
-    "@
+exit /b !EXIT_CODE!
+"@
 
     $wrapperContent | Out-File -FilePath "$BinDir\lm.bat" -Encoding ASCII
+
+    # === NOUVEAU : CONFIGURATION AUTOMATIQUE DU PATH ===
+    Write-ColorOutput "Yellow" "Configuration du PATH..."
+
+    # Méthode 1: PATH utilisateur (recommandé)
+    $userPath = [Environment]::GetEnvironmentVariable("PATH", "User")
+    if ($userPath -notlike "*$BinDir*") {
+        [Environment]::SetEnvironmentVariable("PATH", "$userPath;$BinDir", "User")
+        Write-ColorOutput "Green" "✓ PATH utilisateur mis à jour"
+    }
+
+    # Méthode 2: PATH session courante
+    $env:PATH += ";$BinDir"
 
     # Nettoyer
     Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
@@ -104,24 +113,8 @@ function Install-Release {
     }
 
     Write-ColorOutput "Green" "Installation terminée avec succès!"
-    Write-ColorOutput "Yellow" "Ajoutez $BinDir à votre variable d'environnement PATH"
-    Write-ColorOutput "Yellow" "Ou exécutez directement avec: $BinDir\lm.bat"
-}
-
-function Show-Help {
-    Write-Host @"
-Usage: install.ps1 [OPTIONS]
-
-Options:
-  -Version VERSION    Installer une version spécifique (ex: v1.0.8)
-  -List               Lister les versions disponibles
-  -Uninstall          Désinstaller
-  -Help               Afficher cette aide
-
-Exemples:
-  .\install.ps1                    Installer la dernière version
-  .\install.ps1 -Version v1.0.8    Installer une version spécifique
-"@
+    Write-ColorOutput "Yellow" "Le chemin $BinDir a été ajouté à votre PATH"
+    Write-ColorOutput "Yellow" "Ouvrez un NOUVEAU terminal et exécutez: lm --help"
 }
 
 # Point d'entrée principal
