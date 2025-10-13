@@ -1,4 +1,3 @@
-#intall.ps1
 # Script d'installation pour Windows
 param(
     [string]$Version = "latest",
@@ -26,7 +25,7 @@ function Get-LatestRelease {
         return $response.tag_name
     }
     catch {
-        Write-ColorOutput "Red" "Erreur lors de la récupération de la dernière version"
+        Write-ColorOutput "Red" "Erreur lors de la recuperation de la derniere version"
         exit 1
     }
 }
@@ -36,34 +35,34 @@ function Install-Release {
 
     Write-ColorOutput "Blue" "Installation de la version $Version..."
 
-    # Créer les répertoires
+    # Creer les repertoires
     New-Item -ItemType Directory -Force -Path $InstallDir
     New-Item -ItemType Directory -Force -Path $BinDir
 
-    # URL de téléchargement
+    # URL de telechargement
     $downloadUrl = "https://github.com/$RepoOwner/$RepoName/archive/refs/tags/$Version.zip"
     $tempFile = "$env:TEMP\lm-cli-$Version.zip"
 
-    # Télécharger
+    # Telecharger
     try {
-        Write-ColorOutput "Yellow" "Téléchargement depuis $downloadUrl..."
+        Write-ColorOutput "Yellow" "Telechargement depuis $downloadUrl..."
         Invoke-WebRequest -Uri $downloadUrl -OutFile $tempFile
     }
     catch {
-        Write-ColorOutput "Red" "Erreur lors du téléchargement"
+        Write-ColorOutput "Red" "Erreur lors du telechargement"
         exit 1
     }
 
     # Extraire
     try {
         Write-ColorOutput "Yellow" "Extraction de l'archive..."
-        Expand-Archive -Path $tempFile -DestinationPath "$env:TEMP\" -Force
+        Expand-Archive -Path $tempFile -DestinationPath "$env:TEMP" -Force
 
-        # Trouver le répertoire extrait
+        # Trouver le repertoire extrait
         $extractedDir = Get-ChildItem -Path "$env:TEMP" -Directory | Where-Object { $_.Name -like "lm-cli-*" } | Select-Object -First 1
 
         if (-not $extractedDir) {
-            Write-ColorOutput "Red" "Impossible de trouver le répertoire extrait"
+            Write-ColorOutput "Red" "Impossible de trouver le repertoire extrait"
             exit 1
         }
 
@@ -75,7 +74,7 @@ function Install-Release {
         exit 1
     }
 
-    # Créer le script wrapper
+    # Creer le script wrapper
     $wrapperContent = @"
 @echo off
 setlocal EnableDelayedExpansion
@@ -96,14 +95,14 @@ exit /b !EXIT_CODE!
     # Configuration automatique du PATH
     Write-ColorOutput "Yellow" "Configuration du PATH..."
 
-    # Méthode 1: PATH utilisateur (recommandé)
+    # Methode 1: PATH utilisateur (recommandé)
     $userPath = [Environment]::GetEnvironmentVariable("PATH", "User")
     if ($userPath -notlike "*$BinDir*") {
         [Environment]::SetEnvironmentVariable("PATH", "$userPath;$BinDir", "User")
-        Write-ColorOutput "Green" "✓ PATH utilisateur mis à jour"
+        Write-ColorOutput "Green" "✓ PATH utilisateur mis a jour"
     }
 
-    # Méthode 2: PATH session courante
+    # Methode 2: PATH session courante
     $env:PATH += ";$BinDir"
 
     # Nettoyer
@@ -112,9 +111,9 @@ exit /b !EXIT_CODE!
         Remove-Item $extractedDir.FullName -Recurse -Force -ErrorAction SilentlyContinue
     }
 
-    Write-ColorOutput "Green" "Installation terminée avec succès!"
-    Write-ColorOutput "Yellow" "Le chemin $BinDir a été ajouté à votre PATH"
-    Write-ColorOutput "Yellow" "Ouvrez un NOUVEAU terminal et exécutez: lm --help"
+    Write-ColorOutput "Green" "Installation terminee avec succes!"
+    Write-ColorOutput "Yellow" "Le chemin $BinDir a ete ajoute a votre PATH"
+    Write-ColorOutput "Yellow" "Ouvrez un NOUVEAU terminal et executez: lm --help"
 }
 
 function Show-Help {
@@ -122,33 +121,33 @@ function Show-Help {
 Usage: install.ps1 [OPTIONS]
 
 Options:
-  -Version VERSION    Installer une version spécifique (ex: v1.0.8)
+  -Version VERSION    Installer une version specifique (ex: v1.0.8)
   -List               Lister les versions disponibles
-  -Uninstall          Désinstaller
+  -Uninstall          Desinstaller
   -Help               Afficher cette aide
 
 Exemples:
-  .\install.ps1                    Installer la dernière version
-  .\install.ps1 -Version v1.0.8    Installer une version spécifique
+  .\install.ps1                    Installer la derniere version
+  .\install.ps1 -Version v1.0.8    Installer une version specifique
 "@
 }
 
-# Point d'entrée principal
+# Point d'entree principal
 if ($Help) {
     Show-Help
     exit 0
 }
 
 if ($Uninstall) {
-    Write-ColorOutput "Blue" "Désinstallation..."
+    Write-ColorOutput "Blue" "Desinstallation..."
     Remove-Item $InstallDir -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item $BinDir -Recurse -Force -ErrorAction SilentlyContinue
-    Write-ColorOutput "Green" "Désinstallation terminée"
+    Write-ColorOutput "Green" "Desinstallation terminee"
     exit 0
 }
 
 if ($List) {
-    Write-ColorOutput "Blue" "Récupération des versions..."
+    Write-ColorOutput "Blue" "Recuperation des versions..."
     # Implémentez la liste des versions si nécessaire
     exit 0
 }
