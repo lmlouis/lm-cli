@@ -58,7 +58,7 @@ function Install-Release {
     try {
         Write-ColorOutput "Yellow" "Extraction de l'archive..."
         Expand-Archive -Path $tempFile -DestinationPath "$env:TEMP\" -Force
-        
+
         # Trouver le répertoire extrait
         $extractedDir = Get-ChildItem -Path "$env:TEMP" -Directory | Where-Object { $_.Name -like "lm-cli-*" } | Select-Object -First 1
 
@@ -93,7 +93,7 @@ exit /b !EXIT_CODE!
 
     $wrapperContent | Out-File -FilePath "$BinDir\lm.bat" -Encoding ASCII
 
-    # === NOUVEAU : CONFIGURATION AUTOMATIQUE DU PATH ===
+    # Configuration automatique du PATH
     Write-ColorOutput "Yellow" "Configuration du PATH..."
 
     # Méthode 1: PATH utilisateur (recommandé)
@@ -115,6 +115,22 @@ exit /b !EXIT_CODE!
     Write-ColorOutput "Green" "Installation terminée avec succès!"
     Write-ColorOutput "Yellow" "Le chemin $BinDir a été ajouté à votre PATH"
     Write-ColorOutput "Yellow" "Ouvrez un NOUVEAU terminal et exécutez: lm --help"
+}
+
+function Show-Help {
+    Write-Host @"
+Usage: install.ps1 [OPTIONS]
+
+Options:
+  -Version VERSION    Installer une version spécifique (ex: v1.0.8)
+  -List               Lister les versions disponibles
+  -Uninstall          Désinstaller
+  -Help               Afficher cette aide
+
+Exemples:
+  .\install.ps1                    Installer la dernière version
+  .\install.ps1 -Version v1.0.8    Installer une version spécifique
+"@
 }
 
 # Point d'entrée principal
