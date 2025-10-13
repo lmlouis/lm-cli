@@ -45,6 +45,7 @@ function Install-Release {
 
     # Télécharger
     try {
+        Write-ColorOutput "Yellow" "Téléchargement depuis $downloadUrl..."
         Invoke-WebRequest -Uri $downloadUrl -OutFile $tempFile
     }
     catch {
@@ -54,12 +55,22 @@ function Install-Release {
 
     # Extraire
     try {
+        Write-ColorOutput "Yellow" "Extraction de l'archive..."
         Expand-Archive -Path $tempFile -DestinationPath "$env:TEMP\" -Force
-        $extractedDir = "$env:TEMP\lm-cli-${Version.Substring(1)}"
-        Copy-Item -Path "$extractedDir\*" -Destination $InstallDir -Recurse -Force
+        
+        # Trouver le répertoire extrait (il peut avoir différents formats)
+        $extractedDir = Get-ChildItem -Path "$env:TEMP" -Directory | Where-Object { $_.Name -like "lm-cli-*" } | Select-Object -First 1
+        
+        if (-not $extractedDir) {
+            Write-ColorOutput "Red" "Impossible de trouver le répertoire extrait"
+            exit 1
+        }
+
+        Write-ColorOutput "Yellow" "Copie des fichiers depuis $($extractedDir.FullName)..."
+        Copy-Item -Path "$($extractedDir.FullName)\*" -Destination $InstallDir -Recurse -Force
     }
     catch {
-        Write-ColorOutput "Red" "Erreur lors de l'extraction"
+        Write-ColorOutput "Red" "Erreur lors de l'extraction: $($_.Exception.Message)"
         exit 1
     }
 
@@ -79,11 +90,14 @@ cd /d "%PWD%"
     $wrapperContent | Out-File -FilePath "$BinDir\lm.bat" -Encoding ASCII
 
     # Nettoyer
-    Remove-Item $tempFile -Force
-    Remove-Item $extractedDir -Recurse -Force
+    Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+    if ($extractedDir) {
+        Remove-Item $extractedDir.FullName -Recurse -Force -ErrorAction SilentlyContinue
+    }
 
     Write-ColorOutput "Green" "Installation terminée avec succès!"
     Write-ColorOutput "Yellow" "Ajoutez $BinDir à votre variable d'environnement PATH"
+    Write-ColorOutput "Yellow" "Ou exécutez directement avec: $BinDir\lm.bat"
 }
 
 function Show-Help {
@@ -91,14 +105,14 @@ function Show-Help {
 Usage: install.ps1 [OPTIONS]
 
 Options:
-  -Version VERSION    Installer une version spécifique (ex: 1.0.8)
+  -Version VERSION    Installer une version spécifique (ex: v1.0.8)
   -List               Lister les versions disponibles
   -Uninstall          Désinstaller
   -Help               Afficher cette aide
 
 Exemples:
   .\install.ps1                    Installer la dernière version
-  .\install.ps1 -Version 1.0.8    Installer une version spécifique
+  .\install.ps1 -Version v1.0.8    Installer une version spécifique
 "@
 }
 
