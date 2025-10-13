@@ -1,7 +1,3 @@
-
-## 5. Script PowerShell pour Windows (`install.ps1`)
-
-```powershell
 # Script d'installation pour Windows
 param(
     [string]$Version = "latest",
