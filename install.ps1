@@ -1,3 +1,4 @@
+#intall.ps1
 # Script d'installation pour Windows
 param(
     [string]$Version = "latest",
@@ -75,17 +76,24 @@ function Install-Release {
     }
 
     # Créer le script wrapper
+    # Dans la fonction Install-Release, améliorer le wrapper
     $wrapperContent = @"
-@echo off
-setlocal
+    @echo off
+    setlocal EnableDelayedExpansion
 
-set "SCRIPT_DIR=$InstallDir"
-set "PWD=%CD%"
+    set "SCRIPT_DIR=$InstallDir"
+    set "CURRENT_DIR=%CD%"
 
-cd /d "%SCRIPT_DIR%"
-bash java.sh %*
-cd /d "%PWD%"
-"@
+    echo [DEBUG] Script directory: !SCRIPT_DIR!
+    echo [DEBUG] Current directory: !CURRENT_DIR!
+
+    cd /d "!SCRIPT_DIR!"
+    bash java.sh %*
+    set EXIT_CODE=!ERRORLEVEL!
+    cd /d "!CURRENT_DIR!"
+
+    exit /b !EXIT_CODE!
+    "@
 
     $wrapperContent | Out-File -FilePath "$BinDir\lm.bat" -Encoding ASCII
 

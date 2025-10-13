@@ -1,5 +1,5 @@
 #!/bin/bash
-
+#install.sh
 set -e
 
 # Couleurs pour l'affichage

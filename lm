@@ -1,4 +1,5 @@
 #!/bin/bash
+# Fichier lm - Version améliorée
 
 SCRIPT_DIR="$HOME/.lm-cli"
 
@@ -7,7 +8,8 @@ if [ ! -f "$SCRIPT_DIR/java.sh" ]; then
     exit 1
 fi
 
+# S'assurer que le script est exécutable
 chmod +x "$SCRIPT_DIR/java.sh" 2>/dev/null
 
-# Exécuter sans changer de répertoire
+# Exécuter en passant le répertoire courant
 exec "$SCRIPT_DIR/java.sh" "$@"

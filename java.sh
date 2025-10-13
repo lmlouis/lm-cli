@@ -9,6 +9,18 @@ export RESOURCES_DIR="src/main/resources"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+function cleanup() {
+    # Réinitialiser les variables globales
+    unset PROJECT_BASE_DIR
+    unset PACKAGE_NAME
+    unset PACKAGE_PATH
+    unset BASE_DIR
+    unset RESOURCES_DIR
+}
+
+# Appeler cleanup à la fin du script
+trap cleanup EXIT
+
 # Fonction d'affichage d'aide
 function show_help() {
     echo "Usage: $0 [OPTIONS] <command> [subcommand] [name]"
@@ -184,9 +196,9 @@ function capitalize() {
 
 # Fonction pour récupérer le package name de base
 function get_base_package_name() {
-    # Essayer de trouver le pom.xml dans le répertoire courant ou les parents
     local current_dir="$PWD"
     local pom_file=""
+    local original_dir="$PWD"
 
     # Rechercher le pom.xml dans le répertoire courant et les parents
     while [[ "$current_dir" != "" && ! -e "$current_dir/pom.xml" ]]; do
@@ -196,34 +208,37 @@ function get_base_package_name() {
     if [[ -n "$current_dir" && -f "$current_dir/pom.xml" ]]; then
         pom_file="$current_dir/pom.xml"
         echo "DEBUG: Found pom.xml at: $pom_file" >&2
+
+        # Changer vers le répertoire du projet Spring Boot
+        cd "$(dirname "$pom_file")"
+        export PROJECT_BASE_DIR="$(pwd)"
+        echo "DEBUG: Changed to project directory: $PROJECT_BASE_DIR" >&2
     else
         echo "✘ Fichier pom.xml introuvable dans le dossier courant ou les répertoires parents." >&2
         echo "✘ Assurez-vous d'être dans un projet Spring Boot avec un fichier pom.xml" >&2
+        # Revenir au répertoire original si pas de projet trouvé
+        cd "$original_dir"
         exit 1
     fi
 
-    # Essayer d'abord avec Maven
     local group_id=""
     local artifact_id=""
 
-    # Changer temporairement vers le répertoire du pom.xml pour exécuter Maven
-    local original_dir="$PWD"
-    cd "$(dirname "$pom_file")"
-
-    group_id=$(mvn help:evaluate -Dexpression=project.groupId -q -DforceStdout 2>/dev/null)
-    artifact_id=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout 2>/dev/null)
-
-    # Revenir au répertoire original
-    cd "$original_dir"
+    # Utiliser Maven pour récupérer les informations
+    group_id=$(mvn help:evaluate -Dexpression=project.groupId -q -DforceStdout 2>/dev/null || true)
+    artifact_id=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout 2>/dev/null || true)
 
     # Fallback sur xmllint si Maven échoue
     if [ -z "$group_id" ]; then
-        group_id=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='groupId']/text()" "$pom_file" 2>/dev/null || xmllint --xpath "/*[local-name()='project']/*[local-name()='parent']/*[local-name()='groupId']/text()" "$pom_file" 2>/dev/null)
+        group_id=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='groupId']/text()" "$pom_file" 2>/dev/null || xmllint --xpath "/*[local-name()='project']/*[local-name()='parent']/*[local-name()='groupId']/text()" "$pom_file" 2>/dev/null || echo "")
     fi
 
     if [ -z "$artifact_id" ]; then
-        artifact_id=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='artifactId']/text()" "$pom_file" 2>/dev/null)
+        artifact_id=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='artifactId']/text()" "$pom_file" 2>/dev/null || echo "")
     fi
+
+    # Revenir au répertoire original après traitement
+    cd "$original_dir"
 
     if [ -z "$group_id" ] || [ -z "$artifact_id" ]; then
         echo "✘ Impossible de lire groupId ou artifactId depuis pom.xml" >&2
@@ -296,6 +311,7 @@ function parse_global_options() {
 # Initialisation du package et des répertoires
 function initialize_package() {
     local base_package=""
+    local original_dir="$PWD"
 
     # Essayer de récupérer le package de base depuis pom.xml
     if base_package=$(get_base_package_name); then
@@ -318,10 +334,19 @@ function initialize_package() {
     # Nettoyer le package name (supprimer les tirets)
     PACKAGE_NAME=$(echo "$PACKAGE_NAME" | sed 's/-//g')
     PACKAGE_PATH="${PACKAGE_NAME//.//}"
-    BASE_DIR="src/main/java/$PACKAGE_PATH"
+
+    # Utiliser le répertoire du projet si détecté, sinon le répertoire courant
+    if [ -n "$PROJECT_BASE_DIR" ]; then
+        BASE_DIR="$PROJECT_BASE_DIR/src/main/java/$PACKAGE_PATH"
+        RESOURCES_DIR="$PROJECT_BASE_DIR/src/main/resources"
+    else
+        BASE_DIR="src/main/java/$PACKAGE_PATH"
+        RESOURCES_DIR="src/main/resources"
+    fi
 
     echo "Package: $PACKAGE_NAME"
     echo "Base directory: $BASE_DIR"
+    echo "Project directory: $PROJECT_BASE_DIR" >&2
 }
 
 # Traitement des commandes principales

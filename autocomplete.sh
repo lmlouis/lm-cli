@@ -1,8 +1,38 @@
 #!/bin/bash
 
+#autocomplete.sh
+
+# Dans autocomplete.sh - Ajouter au début
+_setup_auto_completion() {
+    # Vérifier si on est dans un projet Spring Boot
+    local current_dir="$PWD"
+    local has_pom=false
+
+    while [[ "$current_dir" != "" ]]; do
+        if [[ -f "$current_dir/pom.xml" ]]; then
+            has_pom=true
+            break
+        fi
+        current_dir="${current_dir%/*}"
+    done
+
+    # Si pas de projet Spring Boot, limiter les commandes
+    if [[ $has_pom == false ]]; then
+        case ${prev} in
+            lm)
+                COMPREPLY=($(compgen -W "update install uninstall version --help" -- "$cur"))
+                return
+                ;;
+        esac
+    fi
+}
+
 _lm_completion() {
     local cur prev words cword
     _init_completion || return
+
+    # Vérifier le contexte du projet
+    _setup_auto_completion
 
     case ${prev} in
         lm)
