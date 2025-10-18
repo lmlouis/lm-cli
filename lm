@@ -1,15 +1,28 @@
 #!/bin/bash
-# Fichier lm - Version améliorée
+# Wrapper universel pour lm-cli
+# Ce script maintient le contexte du répertoire courant
 
+# Répertoire d'installation du CLI
 SCRIPT_DIR="$HOME/.lm-cli"
 
+# Répertoire courant de l'utilisateur (où les fichiers doivent être générés)
+CURRENT_DIR="$PWD"
+
+# Vérifier que java.sh existe
 if [ ! -f "$SCRIPT_DIR/java.sh" ]; then
-    echo "Le fichier java.sh est introuvable dans $SCRIPT_DIR"
+    echo "❌ Le fichier java.sh est introuvable dans $SCRIPT_DIR"
+    echo "ℹ️  Réinstallez lm-cli avec:"
+    echo "   curl -fsSL https://raw.githubusercontent.com/lmlouis/lm-cli/main/install.sh | bash"
     exit 1
 fi
 
 # S'assurer que le script est exécutable
 chmod +x "$SCRIPT_DIR/java.sh" 2>/dev/null
 
-# Exécuter en passant le répertoire courant
+# IMPORTANT: Rester dans le répertoire courant
+# java.sh recherchera le pom.xml à partir de $PWD
+# et créera les fichiers dans le projet détecté
+cd "$CURRENT_DIR" || exit 1
+
+# Exécuter java.sh avec tous les arguments passés
 exec "$SCRIPT_DIR/java.sh" "$@"

@@ -56,6 +56,8 @@ function show_help() {
     echo "  $0 create service UserService --mapper --implement"
     echo "  $0 --force create domain Product --entity"
     echo "  $0 --package=com.example create rest UserResource"
+    echo "  $0 create pagination"
+    echo "  $0 create filter"
     echo "  $0 update"
     echo "  $0 install 1.1.2"
     echo "  $0 version"
@@ -398,9 +400,28 @@ function process_command() {
     # Pour les commandes create, initialiser le package
     initialize_package
 
+    # Validation du nom selon la sous-commande
     case "$SUBCOMMAND" in
-        config|exception|constant|security|dto|domain|repository|service|rest|changelog|application)
-            if [ -z "$NAME" ] && [ "$SUBCOMMAND" != "pagination" ] && [ "$SUBCOMMAND" != "filter" ] && [ "$SUBCOMMAND" != "changelog" ]; then
+        pagination|filter)
+            # Ces commandes n'ont pas besoin de nom
+            ;;
+        changelog)
+            # Changelog peut avoir un nom optionnel (utilisé pour --init)
+            if [ -z "$NAME" ]; then
+                NAME="initial"
+            fi
+            ;;
+        application)
+            # Application nécessite un profil (qui est dans NAME)
+            if [ -z "$NAME" ]; then
+                echo "✘ Profile manquant pour la commande application"
+                echo "   Exemple: $0 create application dev --yml"
+                exit 1
+            fi
+            ;;
+        *)
+            # Toutes les autres commandes nécessitent un nom
+            if [ -z "$NAME" ]; then
                 echo "✘ Nom manquant pour la sous-commande $SUBCOMMAND"
                 show_help
                 exit 1
@@ -437,7 +458,7 @@ function process_command() {
             process_mapper "$CLASS_NAME" "$JAVA_PACKAGE" "${OPTIONS[@]}"
             ;;
         domain)
-            process_domain "$CLASS_NAME" "$JAVA_PACKAGE" "${OPTIONS[@]}"
+            process_domain "$CLASS_NAME" "$NAME" "$JAVA_PACKAGE" "${OPTIONS[@]}"
             ;;
         repository)
             process_repository "$CLASS_NAME" "$JAVA_PACKAGE"
@@ -685,8 +706,9 @@ public interface ${CLASS_NAME}Mapper extends EntityMapper<${CLASS_NAME}DTO, ${CL
 
 function process_domain() {
     local CLASS_NAME=$1
-    local JAVA_PACKAGE=$2
-    shift 2
+    local ORIGINAL_NAME=$2
+    local JAVA_PACKAGE=$3
+    shift 3
     local OPTIONS=("$@")
 
     local option="entity"
@@ -706,6 +728,8 @@ public enum ${CLASS_NAME} {
     // Valeurs de l'énumération
 }" "$FORCE_GLOBAL"
     else
+        # Convertir le nom en lowercase pour le nom de la table
+        local TABLE_NAME="${ORIGINAL_NAME,,}"
         create_file "$BASE_DIR/domain/entity" "${CLASS_NAME}.java" "package $JAVA_PACKAGE.domain.entity;
 
 import jakarta.persistence.*;
@@ -713,7 +737,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = \"${NAME,,}\")
+@Table(name = \"${TABLE_NAME}\")
 public class ${CLASS_NAME} {
 
     @Id
@@ -843,13 +867,16 @@ function process_rest() {
     local JAVA_PACKAGE=$2
     local NAME=$3
 
+    # Convertir le nom en lowercase pour l'URL
+    local ENDPOINT_NAME="${NAME,,}"
+
     create_file "$BASE_DIR/web/rest" "${CLASS_NAME}Resource.java" "package $JAVA_PACKAGE.web.rest;
 
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
 
 @RestController
-@RequestMapping(\"/api/${NAME,,}\")
+@RequestMapping(\"/api/${ENDPOINT_NAME}\")
 public class ${CLASS_NAME}Resource {
 
     @GetMapping
@@ -907,19 +934,23 @@ function process_changelog() {
             ;;
         sql)
             timestamp=$(date +"%Y%m%d%H%M%S")
+            # Convertir le nom en lowercase pour le nom de table
+            local TABLE_NAME="${NAME,,}"
             create_file "$RESOURCES_DIR/db/sql" "${timestamp}_${NAME}.sql" "-- Script SQL pour ${NAME}
 -- ${timestamp}
 
--- CREATE TABLE IF NOT EXISTS ${NAME} (
+-- CREATE TABLE IF NOT EXISTS ${TABLE_NAME} (
 --     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 --     name VARCHAR(255) NOT NULL,
 --     created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 -- );
 
--- INSERT INTO ${NAME} (name) VALUES ('exemple');" "$FORCE_GLOBAL"
+-- INSERT INTO ${TABLE_NAME} (name) VALUES ('exemple');" "$FORCE_GLOBAL"
             ;;
         *)
             timestamp=$(date +"%Y%m%d%H%M%S")
+            # Convertir le nom en lowercase pour le nom de table
+            local TABLE_NAME="${NAME,,}"
             create_file "$RESOURCES_DIR/db/changelog/changes" "${timestamp}_${NAME}.xml" "<?xml version=\"1.0\" encoding=\"utf-8\"?>
 <databaseChangeLog
     xmlns=\"http://www.liquibase.org/xml/ns/dbchangelog\"
@@ -930,7 +961,7 @@ function process_changelog() {
     <changeSet id=\"${timestamp}-1\" author=\"${USER:-system}\">
         <comment>Création de la table ${NAME}</comment>
         <!--
-        <createTable tableName=\"${NAME}\">
+        <createTable tableName=\"${TABLE_NAME}\">
             <column name=\"id\" type=\"UUID\">
                 <constraints primaryKey=\"true\" nullable=\"false\"/>
             </column>
