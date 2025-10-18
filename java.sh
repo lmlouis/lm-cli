@@ -729,7 +729,7 @@ public enum ${CLASS_NAME} {
 }" "$FORCE_GLOBAL"
     else
         # Convertir le nom en lowercase pour le nom de la table
-        local TABLE_NAME="${ORIGINAL_NAME,,}"
+        local TABLE_NAME=$(echo "$ORIGINAL_NAME" | tr '[:upper:]' '[:lower:]')
         create_file "$BASE_DIR/domain/entity" "${CLASS_NAME}.java" "package $JAVA_PACKAGE.domain.entity;
 
 import jakarta.persistence.*;
@@ -935,7 +935,7 @@ function process_changelog() {
         sql)
             timestamp=$(date +"%Y%m%d%H%M%S")
             # Convertir le nom en lowercase pour le nom de table
-            local TABLE_NAME="${NAME,,}"
+            local TABLE_NAME=$(echo "$ORIGINAL_NAME" | tr '[:upper:]' '[:lower:]')
             create_file "$RESOURCES_DIR/db/sql" "${timestamp}_${NAME}.sql" "-- Script SQL pour ${NAME}
 -- ${timestamp}
 
@@ -950,7 +950,7 @@ function process_changelog() {
         *)
             timestamp=$(date +"%Y%m%d%H%M%S")
             # Convertir le nom en lowercase pour le nom de table
-            local TABLE_NAME="${NAME,,}"
+            local TABLE_NAME=$(echo "$ORIGINAL_NAME" | tr '[:upper:]' '[:lower:]')
             create_file "$RESOURCES_DIR/db/changelog/changes" "${timestamp}_${NAME}.xml" "<?xml version=\"1.0\" encoding=\"utf-8\"?>
 <databaseChangeLog
     xmlns=\"http://www.liquibase.org/xml/ns/dbchangelog\"
