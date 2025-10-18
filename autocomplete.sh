@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # autocomplete.sh - Autocomplétion pour lm-cli
+# Compatible Bash 3.2+ (macOS, Linux, Windows Git Bash)
 
 _setup_auto_completion() {
     # Vérifier si on est dans un projet Spring Boot
@@ -21,7 +22,18 @@ _setup_auto_completion() {
 
 _lm_completion() {
     local cur prev words cword
-    _init_completion || return
+
+    # Initialisation manuelle compatible Bash 3.x
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    cword=$COMP_CWORD
+
+    # Copier COMP_WORDS dans words (compatible bash 3.x)
+    words=()
+    for ((i=0; i<${#COMP_WORDS[@]}; i++)); do
+        words[$i]="${COMP_WORDS[$i]}"
+    done
 
     # Vérifier le contexte du projet
     local has_pom=$(_setup_auto_completion)
@@ -45,7 +57,6 @@ _lm_completion() {
             if [[ $has_pom == "true" ]]; then
                 COMPREPLY=($(compgen -W "$CREATE_SUBCOMMANDS" -- "$cur"))
             else
-                echo "⚠️  Pas de projet Spring Boot détecté (pom.xml)" >&2
                 COMPREPLY=()
             fi
             return
@@ -58,11 +69,6 @@ _lm_completion() {
         install)
             # Suggérer 'latest' ou permettre une version spécifique
             COMPREPLY=($(compgen -W "latest 1.1.3 1.1.2 1.1.1" -- "$cur"))
-            return
-            ;;
-        --package=*|--package)
-            # Suggestions de packages courants
-            COMPREPLY=($(compgen -W "statistics security common util api core admin" -- "$cur"))
             return
             ;;
     esac
@@ -186,5 +192,8 @@ _lm_completion() {
 # Enregistrer la fonction d'autocomplétion
 complete -F _lm_completion lm 2>/dev/null
 
-# Message de confirmation (optionnel, à commenter en production)
-# echo "✅ Autocomplétion lm-cli chargée avec succès" >&2
+# Message de confirmation (seulement si exécuté directement)
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    echo "✅ Autocomplétion lm-cli chargée avec succès"
+    echo "ℹ️  Tapez 'lm' puis appuyez sur TAB pour voir les commandes disponibles"
+fi
