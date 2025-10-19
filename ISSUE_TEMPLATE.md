@@ -1,8 +1,12 @@
 Une tâche à faire
+
 La syntaxe de liste est nécessaire
+
 [] → on peut utiliser du formatage (gras, italique), des @mentions et des références à des tickets/issues (ex : #1234)
  incomplete
+ 
 [] → tâche non terminée
+
 [x] → tâche terminée
 
 ---
