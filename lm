@@ -1,5 +1,5 @@
 #!/bin/bash
-# Wrapper universel pour lm-cli
+# fichier lm Wrapper universel pour lm-cli
 # Ce script maintient le contexte du répertoire courant
 
 # Répertoire d'installation du CLI

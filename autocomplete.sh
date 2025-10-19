@@ -1,199 +1,223 @@
 #!/bin/bash
-
-# autocomplete.sh - Autocomplétion pour lm-cli
-# Compatible Bash 3.2+ (macOS, Linux, Windows Git Bash)
-
-_setup_auto_completion() {
-    # Vérifier si on est dans un projet Spring Boot
-    local current_dir="$PWD"
-    local has_pom=false
-
-    while [[ "$current_dir" != "" ]]; do
-        if [[ -f "$current_dir/pom.xml" ]]; then
-            has_pom=true
-            break
-        fi
-        current_dir="${current_dir%/*}"
-    done
-
-    # Retourner le statut
-    echo "$has_pom"
-}
+# autocomplete.sh - Autocomplétion intelligente pour lm-cli
+# Compatible Bash et Zsh
 
 _lm_completion() {
     local cur prev words cword
 
-    # Initialisation manuelle compatible Bash 3.x
-    COMPREPLY=()
-    cur="${COMP_WORDS[COMP_CWORD]}"
-    prev="${COMP_WORDS[COMP_CWORD-1]}"
-    cword=$COMP_CWORD
-
-    # Copier COMP_WORDS dans words (compatible bash 3.x)
-    words=()
-    for ((i=0; i<${#COMP_WORDS[@]}; i++)); do
-        words[$i]="${COMP_WORDS[$i]}"
-    done
-
-    # Vérifier le contexte du projet
-    local has_pom=$(_setup_auto_completion)
-
-    # Commandes disponibles sans projet Spring Boot
-    local MANAGEMENT_COMMANDS="update install uninstall version --help -h"
-
-    # Commandes nécessitant un projet Spring Boot
-    local CREATE_SUBCOMMANDS="config exception constant security pagination filter dto mapper domain repository service rest changelog application"
-
-    case ${prev} in
-        lm)
-            if [[ $has_pom == "true" ]]; then
-                COMPREPLY=($(compgen -W "create $MANAGEMENT_COMMANDS" -- "$cur"))
-            else
-                COMPREPLY=($(compgen -W "$MANAGEMENT_COMMANDS" -- "$cur"))
-            fi
-            return
-            ;;
-        create)
-            if [[ $has_pom == "true" ]]; then
-                COMPREPLY=($(compgen -W "$CREATE_SUBCOMMANDS" -- "$cur"))
-            else
-                COMPREPLY=()
-            fi
-            return
-            ;;
-        update|uninstall|version)
-            # Pas d'arguments supplémentaires
-            COMPREPLY=()
-            return
-            ;;
-        install)
-            # Suggérer 'latest' ou permettre une version spécifique
-            COMPREPLY=($(compgen -W "latest 1.1.3 1.1.2 1.1.1" -- "$cur"))
-            return
-            ;;
-    esac
-
-    # Gestion des options globales
-    if [[ $cur == --* ]]; then
-        case ${words[2]} in
-            config|exception|constant|security|dto|mapper|domain|repository|service|rest|changelog|application|pagination|filter)
-                COMPREPLY=($(compgen -W "--force --package=" -- "$cur"))
-                return
-                ;;
-        esac
+    # Compatibilité Bash/Zsh
+    if [ -n "$BASH_VERSION" ]; then
+        COMPREPLY=()
+        cur="${COMP_WORDS[COMP_CWORD]}"
+        prev="${COMP_WORDS[COMP_CWORD-1]}"
+        words=("${COMP_WORDS[@]}")
+        cword=$COMP_CWORD
+    elif [ -n "$ZSH_VERSION" ]; then
+        # Mode Zsh - convertir les tableaux
+        words=("${(@)words}")
+        cur="${words[-1]}"
+        prev="${words[-2]}"
+        cword=${#words[@]}
     fi
 
-    # Gestion des sous-options spécifiques aux sous-commandes
-    if [[ ${#words[@]} -ge 3 ]]; then
-        case ${words[2]} in
+    # Vérifier si on est dans un projet Spring Boot
+    local has_pom=false
+    local check_dir="$PWD"
+    while [[ "$check_dir" != "" ]]; do
+        if [[ -f "$check_dir/pom.xml" ]]; then
+            has_pom=true
+            break
+        fi
+        check_dir="${check_dir%/*}"
+    done
+
+    # Commandes disponibles sans projet
+    local mgmt_cmds="update install uninstall version --help -h"
+
+    # Sous-commandes create (nécessitent un projet Spring Boot)
+    local create_cmds="config exception constant security pagination filter dto mapper domain repository service rest changelog application"
+
+    # Position dans la commande
+    local cmd="${words[1]}"
+    local subcmd="${words[2]}"
+    local name="${words[3]}"
+
+    # Fonction helper pour la complétion
+    _complete() {
+        if [ -n "$BASH_VERSION" ]; then
+            COMPREPLY=($(compgen -W "$1" -- "$cur"))
+        elif [ -n "$ZSH_VERSION" ]; then
+            compadd -Q -- ${=1}
+        fi
+    }
+
+    # Niveau 1: Commande principale (lm ...)
+    if [ $cword -eq 1 ]; then
+        if [ "$has_pom" = true ]; then
+            _complete "create $mgmt_cmds"
+        else
+            _complete "$mgmt_cmds"
+        fi
+        return 0
+    fi
+
+    # Niveau 2: Sous-commande (lm create ...)
+    if [ "$cmd" = "create" ] && [ $cword -eq 2 ]; then
+        if [ "$has_pom" = true ]; then
+            _complete "$create_cmds"
+        fi
+        return 0
+    fi
+
+    # Niveau 3: Nom ou options (lm create config ...)
+    if [ "$cmd" = "create" ] && [ $cword -eq 3 ]; then
+        case "$subcmd" in
+            pagination|filter)
+                # Pas de nom requis, proposer options
+                _complete "--force"
+                ;;
             config)
-                if [[ ${#words[@]} -eq 4 ]] && [[ "$cur" != -* ]]; then
-                    # Nom du config
-                    COMPREPLY=($(compgen -W "Database Security Email Cache Redis OAuth Swagger CORS" -- "$cur"))
+                if [[ "$cur" == -* ]]; then
+                    _complete "--properties --force"
                 else
-                    COMPREPLY=($(compgen -W "--properties --force" -- "$cur"))
+                    _complete "Database Security Email Cache Redis OAuth Swagger CORS"
                 fi
                 ;;
             exception)
-                if [[ ${#words[@]} -eq 4 ]] && [[ "$cur" != -* ]]; then
-                    COMPREPLY=($(compgen -W "NotFound BadRequest Unauthorized Forbidden Validation ResourceNotFound" -- "$cur"))
+                if [[ "$cur" == -* ]]; then
+                    _complete "--force"
                 else
-                    COMPREPLY=($(compgen -W "--force" -- "$cur"))
+                    _complete "NotFound BadRequest Unauthorized Forbidden Validation ResourceNotFound"
                 fi
                 ;;
             constant)
-                if [[ ${#words[@]} -eq 4 ]] && [[ "$cur" != -* ]]; then
-                    COMPREPLY=($(compgen -W "Application Api Database Status ErrorCode" -- "$cur"))
+                if [[ "$cur" == -* ]]; then
+                    _complete "--force"
                 else
-                    COMPREPLY=($(compgen -W "--force" -- "$cur"))
+                    _complete "Application Api Database Status ErrorCode"
                 fi
                 ;;
             security)
-                if [[ ${#words[@]} -eq 4 ]] && [[ "$cur" != -* ]]; then
-                    COMPREPLY=($(compgen -W "JwtUtil SecurityConfig UserDetailsService AuthenticationFilter" -- "$cur"))
+                if [[ "$cur" == -* ]]; then
+                    _complete "--force"
                 else
-                    COMPREPLY=($(compgen -W "--force" -- "$cur"))
+                    _complete "JwtUtil SecurityConfig UserDetailsService AuthenticationFilter"
                 fi
                 ;;
-            pagination)
-                # Pas de nom requis pour pagination
-                COMPREPLY=($(compgen -W "--force" -- "$cur"))
-                ;;
-            filter)
-                # Pas de nom requis pour filter
-                COMPREPLY=($(compgen -W "--force" -- "$cur"))
-                ;;
             dto)
-                if [[ ${#words[@]} -eq 4 ]] && [[ "$cur" != -* ]]; then
-                    COMPREPLY=($(compgen -W "User Product Order Customer Invoice Payment" -- "$cur"))
+                if [[ "$cur" == -* ]]; then
+                    _complete "--record --force"
                 else
-                    COMPREPLY=($(compgen -W "--record --force" -- "$cur"))
+                    _complete "User Product Order Customer Invoice Payment"
                 fi
                 ;;
             mapper)
-                if [[ ${#words[@]} -eq 4 ]] && [[ "$cur" != -* ]]; then
-                    COMPREPLY=($(compgen -W "User Product Order EntityMapper" -- "$cur"))
+                if [[ "$cur" == -* ]]; then
+                    _complete "--init --force"
                 else
-                    COMPREPLY=($(compgen -W "--init --force" -- "$cur"))
+                    _complete "User Product Order EntityMapper"
                 fi
                 ;;
             domain)
-                if [[ ${#words[@]} -eq 4 ]] && [[ "$cur" != -* ]]; then
-                    COMPREPLY=($(compgen -W "User Product Order Customer Invoice Status Role" -- "$cur"))
+                if [[ "$cur" == -* ]]; then
+                    _complete "--enum --entity --force"
                 else
-                    COMPREPLY=($(compgen -W "--enum --entity --force" -- "$cur"))
+                    _complete "User Product Order Customer Invoice Status Role"
                 fi
                 ;;
             repository)
-                if [[ ${#words[@]} -eq 4 ]] && [[ "$cur" != -* ]]; then
-                    COMPREPLY=($(compgen -W "User Product Order Customer Invoice" -- "$cur"))
+                if [[ "$cur" == -* ]]; then
+                    _complete "--force"
                 else
-                    COMPREPLY=($(compgen -W "--force" -- "$cur"))
+                    _complete "User Product Order Customer Invoice"
                 fi
                 ;;
             service)
-                if [[ ${#words[@]} -eq 4 ]] && [[ "$cur" != -* ]]; then
-                    COMPREPLY=($(compgen -W "User Product Order Customer Invoice Email Notification" -- "$cur"))
+                if [[ "$cur" == -* ]]; then
+                    _complete "--mapper --criteria --query --implement --class --force"
                 else
-                    COMPREPLY=($(compgen -W "--mapper --criteria --query --implement --class --force" -- "$cur"))
+                    _complete "User Product Order Customer Invoice Email Notification"
                 fi
                 ;;
             rest)
-                if [[ ${#words[@]} -eq 4 ]] && [[ "$cur" != -* ]]; then
-                    COMPREPLY=($(compgen -W "User Product Order Customer Invoice Auth Admin" -- "$cur"))
+                if [[ "$cur" == -* ]]; then
+                    _complete "--force"
                 else
-                    COMPREPLY=($(compgen -W "--force" -- "$cur"))
+                    _complete "User Product Order Customer Invoice Auth Admin"
                 fi
                 ;;
             changelog)
-                if [[ ${#words[@]} -eq 4 ]] && [[ "$cur" != -* ]]; then
-                    COMPREPLY=($(compgen -W "initial create_users create_products add_indexes" -- "$cur"))
+                if [[ "$cur" == -* ]]; then
+                    _complete "--init --data --sql --force"
                 else
-                    COMPREPLY=($(compgen -W "--init --data --sql --force" -- "$cur"))
+                    _complete "initial create_users create_products add_indexes"
                 fi
                 ;;
             application)
-                if [[ ${#words[@]} -eq 4 ]] && [[ "$cur" != -* ]]; then
-                    # Profils Spring Boot courants
-                    COMPREPLY=($(compgen -W "dev prod test staging local" -- "$cur"))
+                if [[ "$cur" == -* ]]; then
+                    _complete "--yml --properties --force"
                 else
-                    COMPREPLY=($(compgen -W "--yml --properties --force" -- "$cur"))
+                    _complete "dev prod test staging local"
                 fi
                 ;;
         esac
+        return 0
     fi
 
-    # Si rien n'a été trouvé, proposer les options globales
-    if [[ ${#COMPREPLY[@]} -eq 0 ]] && [[ $cur == -* ]]; then
-        COMPREPLY=($(compgen -W "--force --package= --help" -- "$cur"))
+    # Niveau 4+: Options supplémentaires après le nom
+    if [ "$cmd" = "create" ] && [ $cword -gt 3 ]; then
+        case "$subcmd" in
+            config)
+                _complete "--properties --force"
+                ;;
+            dto)
+                _complete "--record --force"
+                ;;
+            mapper)
+                _complete "--init --force"
+                ;;
+            domain)
+                _complete "--enum --entity --force"
+                ;;
+            service)
+                _complete "--mapper --criteria --query --implement --class --force"
+                ;;
+            changelog)
+                _complete "--init --data --sql --force"
+                ;;
+            application)
+                _complete "--yml --properties --force"
+                ;;
+            *)
+                _complete "--force"
+                ;;
+        esac
+        return 0
     fi
+
+    # Options pour les autres commandes
+    case "$cmd" in
+        install)
+            if [ $cword -eq 2 ]; then
+                _complete "latest v1.1.3 v1.1.2 v1.1.1"
+            fi
+            ;;
+        update|uninstall|version)
+            # Pas d'options
+            ;;
+    esac
 }
 
-# Enregistrer la fonction d'autocomplétion
-complete -F _lm_completion lm 2>/dev/null
+# Enregistrement selon le shell
+if [ -n "$BASH_VERSION" ]; then
+    complete -F _lm_completion lm
+elif [ -n "$ZSH_VERSION" ]; then
+    # Zsh nécessite une fonction wrapper
+    compdef _lm_completion lm
+fi
 
-# Message de confirmation (seulement si exécuté directement)
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    echo "✅ Autocomplétion lm-cli chargée avec succès"
-    echo "ℹ️  Tapez 'lm' puis appuyez sur TAB pour voir les commandes disponibles"
+# Message de confirmation si chargé directement
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]] || [[ "${(%):-%x}" == "${0}" ]]; then
+    echo "✅ Autocomplétion lm-cli chargée"
+    echo "ℹ️  Testez: lm <TAB>"
 fi

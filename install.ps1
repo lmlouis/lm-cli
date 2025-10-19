@@ -1,4 +1,4 @@
-# Script d'installation pour Windows
+# install.ps1 Script d'installation pour Windows
 param(
     [string]$Version = "latest",
     [switch]$List,
