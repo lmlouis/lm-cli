@@ -1,265 +1,292 @@
-# LM CLI - Générateur de Code Spring Boot
+# 🚀 lm-cli
 
-## 📋 Description
+[![Version](https://img.shields.io/badge/version-1.2.6-blue.svg)](https://github.com/lmlouis/lm-cli/releases)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Shell](https://img.shields.io/badge/shell-bash%20%7C%20zsh%20%7C%20powershell-orange.svg)]()
 
-**LM CLI** est un outil en ligne de commande pour générer rapidement la structure de code d'une application Spring Boot. Il permet de créer des classes, configurations, DTOs, mappers, et autres composants courants avec une structure cohérente.
+**lm-cli** est un outil en ligne de commande puissant pour générer automatiquement des composants Spring Boot suivant les meilleures pratiques et l'architecture en couches.
 
-## 🚀 Fonctionnalités
+> 🎯 **Gagnez du temps** : Générez des entités, services, repositories, DTOs, mappers et contrôleurs REST en une seule commande !
 
-### Commandes disponibles
+---
 
-| Commande | Description | Options |
-|----------|-------------|---------|
-| `create config <name>` | Créer une classe de configuration | `--properties` |
-| `create exception <name>` | Créer une exception personnalisée | |
-| `create constant <name>` | Créer une classe de constantes | |
-| `create security <name>` | Créer un composant de sécurité | |
-| `create pagination` | Créer une classe de pagination | |
-| `create filter` | Créer un filter HTTP | |
-| `create dto <name>` | Créer un DTO | `--record` |
-| `create mapper <name>` | Créer un mapper | `--init` |
-| `create domain <name>` | Créer une entité/enum | `--enum`, `--entity` |
-| `create repository <name>` | Créer un repository JPA | |
-| `create service <name>` | Créer un service | `--mapper`, `--criteria`, `--query`, `--implement`, `--class` |
-| `create rest <name>` | Créer un contrôleur REST | |
-| `create changelog <name>` | Créer un changelog Liquibase | `--init`, `--data`, `--sql` |
-| `create application <profile>` | Créer un fichier de configuration | `--yml`, `--properties` |
+## ✨ Fonctionnalités principales
 
-### Options globales
+- 🏗️ **Génération de code** : Entités, repositories, services, contrôleurs REST
+- 📦 **Architecture en couches** : Respecte les principes SOLID et Clean Architecture
+- 🔄 **Mappers automatiques** : Conversion entité ↔ DTO avec MapStruct
+- 🔒 **Sécurité** : Configuration JWT, Spring Security, authentification
+- 📝 **Documentation** : Swagger/OpenAPI intégré
+- 🗃️ **Base de données** : Support Liquibase pour les migrations
+- ⚡ **Autocomplétion** : Support Bash, Zsh et PowerShell
+- 🌐 **Multi-plateforme** : Linux, macOS, Windows (WSL/PowerShell)
 
-- `--force` : Écraser les fichiers existants
-- `--package=NAME` : Spécifier un package personnalisé
-- `--help` : Afficher l'aide
+---
 
-## 📦 Installation
+## 📦 Installation rapide
 
-**Linux/macOS :**
+### Linux / macOS / WSL
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/lmlouis/lm-cli/main/install.sh | bash
 ```
 
-**Windows :**
+### Windows PowerShell
+
 ```powershell
-# Téléchargez et exécutez le script d'installation
-curl -fsSL -o install.ps1 https://raw.githubusercontent.com/lmlouis/lm-cli/main/install.ps1
-.\install.ps1
+irm https://raw.githubusercontent.com/lmlouis/lm-cli/main/install.ps1 | iex
 ```
 
-### Méthode alternative - Installation manuelle
+Après l'installation, redémarrez votre terminal ou exécutez :
 
-1. **Téléchargez la dernière release** depuis [GitHub Releases](https://github.com/lmlouis/lm-cli/releases)
-
-2. **Extrayez l'archive** dans le dossier souhaité
-
-3. **Rendez les scripts exécutables** :
 ```bash
-chmod +x lm java.sh
+source ~/.bashrc  # Bash
+source ~/.zshrc   # Zsh
+. $PROFILE        # PowerShell
 ```
 
-4. **Ajoutez au PATH** (optionnel) :
+**📖 [Guide d'installation complet](docs/INSTALLATION.md)**
+
+---
+
+## 🎯 Démarrage rapide
+
+### 1. Créer un DTO
+
 ```bash
-# Pour l'utiliser globalement, ajoutez un alias ou déplacez le script
-sudo mv lm /usr/local/bin/
-# Ou créez un lien symbolique
-sudo ln -s "$(pwd)/lm" /usr/local/bin/lm
+lm create dto User --record
 ```
 
-### Vérification de l'installation
-
-Une fois installé, vérifiez que la commande fonctionne :
+### 2. Créer une entité JPA
 
 ```bash
-lm --help
+lm create domain Product --entity
 ```
 
-## 🛠 Utilisation
-
-Placez-vous dans votre projet Spring Boot et utilisez les commandes :
+### 3. Créer un service complet
 
 ```bash
-cd mon-projet-spring
-lm create service UserService --mapper --implement
-lm create domain User --entity
+lm create service Order --mapper --implement
 ```
 
-### Mise à jour
-
-Pour mettre à jour vers la dernière version :
+### 4. Créer un contrôleur REST
 
 ```bash
-lm update
+lm create rest Customer
 ```
 
-### Désinstallation
+**📚 [Référence complète des commandes](docs/COMMANDS.md)**
+
+---
+
+## 📋 Prérequis
+
+- **Java** 17 ou supérieur
+- **Maven** ou **Gradle**
+- Un projet **Spring Boot** existant (avec `pom.xml` ou `build.gradle`)
+- **Bash** 4.0+, **Zsh** 5.0+ ou **PowerShell** 5.1+
+
+---
+
+## 📚 Documentation
+
+| Documentation | Description |
+|---------------|-------------|
+| [📖 Installation](docs/INSTALLATION.md) | Guide d'installation détaillé pour tous les OS |
+| [⚡ Autocomplétion](docs/AUTOCOMPLETE.md) | Configuration de l'autocomplétion intelligente |
+| [📚 Commandes](docs/COMMANDS.md) | Référence complète de toutes les commandes |
+| [🔄 Cycle de vie](docs/LIFECYCLE.md) | Installation, mise à jour et désinstallation |
+
+---
+
+## 🚀 Commandes disponibles
+
+### Génération de composants
 
 ```bash
-lm uninstall
+lm create config <name>           # Configuration (Database, Security, etc.)
+lm create exception <name>        # Exception personnalisée
+lm create constant <name>         # Classe de constantes
+lm create security <name>         # Configuration de sécurité
+lm create dto <name>              # Data Transfer Object
+lm create mapper <name>           # Mapper entité ↔ DTO
+lm create domain <name>           # Entité JPA ou Enum
+lm create repository <name>       # Repository Spring Data JPA
+lm create service <name>          # Service métier
+lm create rest <name>             # Contrôleur REST
+lm create changelog <name>        # Changelog Liquibase
+lm create application <profile>   # Fichier application.yml
+lm create pagination              # Système de pagination
+lm create filter                  # Système de filtrage
+```
+
+### Gestion de l'outil
+
+```bash
+lm version                        # Afficher la version
+lm update                         # Mettre à jour lm-cli
+lm install <version>              # Installer une version spécifique
+lm uninstall                      # Désinstaller lm-cli
+lm --help                         # Afficher l'aide
 ```
 
 ---
 
-**Corrections apportées :**
-- ✅ Suppression de la ligne "Téléchargez d'abord le script d'installation" en double
-- ✅ Correction de la syntaxe PowerShell avec `.\install.ps1` au lieu de `.\install.ps1 puis`
-- ✅ Ajout de la méthode d'installation manuelle
-- ✅ Clarification des étapes de vérification
-- ✅ Organisation plus logique des sections
-## 🛠 Utilisation
+## 💡 Exemples d'utilisation
 
-### Exemples de base
+### Créer un CRUD complet pour "Product"
 
 ```bash
-# Créer un service avec implémentation
-./lm create service UserService --implement
+# 1. Créer l'entité
+lm create domain Product --entity
 
-# Créer une entité JPA
-./lm create domain User --entity
+# 2. Créer le DTO
+lm create dto Product --record
 
-# Créer un repository
-./lm create repository UserRepository
+# 3. Créer le mapper
+lm create mapper Product --init
 
-# Créer un contrôleur REST
-./lm create rest UserResource
+# 4. Créer le repository
+lm create repository Product
+
+# 5. Créer le service
+lm create service Product --mapper --implement
+
+# 6. Créer le contrôleur REST
+lm create rest Product
 ```
 
-### Utilisation avec packages personnalisés
+### Configurer la sécurité JWT
 
 ```bash
-# Créer des composants dans un sous-package
-./lm --package=statistics create dto Operation --record
-./lm --package=security create service AuthService --implement
-./lm --package=common create constant AppConstants
+# 1. Configuration de sécurité
+lm create security JwtUtil
+
+# 2. Contrôleur d'authentification
+lm create rest Auth
 ```
 
-### Forcer l'écriture
+### Initialiser Liquibase
 
 ```bash
-# Écraser un fichier existant
-./lm --force create domain Product --entity
+# Changelog initial
+lm create changelog initial --init
+
+# Ajouter des données de test
+lm create changelog seed_data --data
 ```
 
-## 🏗 Structure générée
+---
 
-Le script détecte automatiquement la structure du projet Maven et génère les fichiers dans :
+## 🎨 Structure générée
 
 ```
-src/main/java/
-└── com.example.application/
-    ├── config/
-    ├── constant/
-    ├── domain/
-    │   ├── entity/
-    │   └── enumeration/
-    ├── dto/
-    │   └── record/
-    ├── exception/
-    ├── mapper/
-    ├── repository/
-    ├── service/
-    │   ├── criteria/
-    │   ├── impl/
-    │   └── mapper/
-    ├── web/
-    │   └── rest/
-    └── security/
+src/main/java/com/example/demo/
+├── config/                  # Configurations
+│   ├── DatabaseConfig.java
+│   ├── SecurityConfig.java
+│   └── SwaggerConfig.java
+├── domain/                  # Entités JPA
+│   ├── Product.java
+│   └── User.java
+├── dto/                     # Data Transfer Objects
+│   ├── ProductDTO.java
+│   └── UserDTO.java
+├── mapper/                  # Mappers
+│   ├── ProductMapper.java
+│   └── UserMapper.java
+├── repository/              # Repositories
+│   ├── ProductRepository.java
+│   └── UserRepository.java
+├── service/                 # Services
+│   ├── ProductService.java
+│   └── UserService.java
+├── web/rest/               # Contrôleurs REST
+│   ├── ProductResource.java
+│   └── UserResource.java
+└── exception/              # Exceptions personnalisées
+    ├── NotFoundException.java
+    └── BadRequestException.java
 ```
+
+---
 
 ## 🔧 Configuration
 
-### Prérequis
+lm-cli détecte automatiquement :
+- ✅ Le package principal de votre application
+- ✅ La structure de votre projet (Maven/Gradle)
+- ✅ Les dépendances existantes
+- ✅ La version de Java utilisée
 
-- **Java** 17 ou supérieur
-- **Maven** 3.6 ou supérieur
-- **Spring Boot** 3.x
-- Projet Maven avec un `pom.xml` valide
-
-### Détection automatique
-
-Le script lit automatiquement :
-- `groupId` et `artifactId` depuis `pom.xml`
-- Structure des packages
-- Configuration du projet
-
-## 🎯 Exemples complets
-
-### Création d'un module complet
+Pour spécifier un package personnalisé :
 
 ```bash
-# Module utilisateur
-./lm --package=user create domain User --entity
-./lm --package=user create repository UserRepository
-./lm --package=user create service UserService --implement --mapper --criteria
-./lm --package=user create dto UserDTO --record
-./lm --package=user create rest UserResource
-
-# Résultat dans : src/main/java/com.example.application.user/
+lm create service Product --package com.mycompany.custom
 ```
 
-### Configuration avancée
-
-```bash
-# Configuration avec propriétés
-./lm create config Database --properties
-
-# Mapper générique
-./lm create mapper Entity --init
-
-# Changelog Liquibase
-./lm create changelog initial --init
-./lm create changelog user-table --sql
-```
+---
 
 ## 🤝 Contribution
 
-Les contributions sont bienvenues ! Pour contribuer :
+Les contributions sont les bienvenues ! Pour contribuer :
 
 1. Fork le projet
-2. Créer une branche feature (`git checkout -b feature/ma-fonctionnalite`)
-3. Commit les changements (`git commit -am 'Ajouter une fonctionnalité'`)
-4. Push la branche (`git push origin feature/ma-fonctionnalite`)
-5. Ouvrir une Pull Request
+2. Créez une branche (`git checkout -b feature/nouvelle-fonctionnalite`)
+3. Committez vos changements (`git commit -m 'Ajout nouvelle fonctionnalité'`)
+4. Poussez vers la branche (`git push origin feature/nouvelle-fonctionnalite`)
+5. Ouvrez une Pull Request
 
-## 📝 Journal des modifications
+---
 
-### Version 1.0.7
-- ✅ Ajout de l'auto-complétion Bash
-- ✅ Support des packages personnalisés
-- ✅ Option `--force` globale
-- ✅ Meilleure gestion des erreurs
-- ✅ Templates de code améliorés
+## 🐛 Signaler un bug
 
-### Version 1.0.0
-- ✅ Version initiale avec les commandes de base
+Vous avez trouvé un bug ? [Créez une issue](https://github.com/lmlouis/lm-cli/issues/new?template=bug_report.md)
 
-## 🐛 Dépannage
+---
 
-### Problèmes courants
+## 📝 Changelog
 
-**Fichier pom.xml introuvable**
-```bash
-✘ Fichier pom.xml introuvable.
-```
-→ Assurez-vous d'exécuter le script depuis la racine du projet Maven.
+Consultez le [CHANGELOG.md](CHANGELOG.md) pour voir l'historique des versions.
 
-**Auto-complétion ne fonctionne pas**
-```bash
-# Recharger la configuration
-source ~/.bashrc
-# ou
-exec bash
-```
+### Version actuelle : 1.2.6
 
-**Permission denied**
-```bash
-chmod +x lm
-```
+**Nouveautés** :
+- ✨ Support PowerShell pour Windows
+- ⚡ Autocomplétion intelligente améliorée
+- 🐛 Corrections de bugs divers
+- 📚 Documentation enrichie
+
+[Voir toutes les versions](https://github.com/lmlouis/lm-cli/releases)
+
+---
 
 ## 📄 Licence
 
-Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
+Ce projet est sous licence **MIT**. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
 
-## 👨‍💻 Auteur
+---
 
-Développé par WORA SOUAMY Louis Martin - louis-martin.wora@aninf.ga
+## 👤 Auteur
+
+**Louis LM**
+
+- GitHub: [@lmlouis](https://github.com/lmlouis)
+- Email: louis-martin.wora@aninf.ga
+
+---
+
+## ⭐ Support
+
+Si ce projet vous est utile, n'hésitez pas à lui donner une ⭐ sur GitHub !
+
+---
+
+## 🔗 Liens utiles
+
+- [📖 Documentation complète](https://github.com/lmlouis/lm-cli/wiki)
+- [🐛 Signaler un bug](https://github.com/lmlouis/lm-cli/issues)
+- [💬 Discussions](https://github.com/lmlouis/lm-cli/discussions)
+- [📦 Releases](https://github.com/lmlouis/lm-cli/releases)
 
 ---
