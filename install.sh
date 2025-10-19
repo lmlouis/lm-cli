@@ -233,7 +233,7 @@ main() {
                 show_help
                 exit 1
                 ;;
-        esacF
+        esac
     done
 
     case $action in
