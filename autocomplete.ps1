@@ -4,7 +4,7 @@
 # Fonction pour vérifier la présence d'un pom.xml
 function Test-SpringBootProject {
     $currentDir = Get-Location
-    while ($currentDir) {
+    while ($currentDir -and $currentDir -ne [System.IO.Path]::GetPathRoot($currentDir)) {
         if (Test-Path (Join-Path $currentDir "pom.xml")) {
             return $true
         }
@@ -15,7 +15,7 @@ function Test-SpringBootProject {
 
 # Fonction d'autocomplétion principale
 $scriptBlock = {
-    param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
+    param($wordToComplete, $commandAst, $cursorPosition)
 
     $hasPom = Test-SpringBootProject
 
@@ -24,8 +24,14 @@ $scriptBlock = {
     $words = $line -split '\s+' | Where-Object { $_ -ne '' }
     $wordCount = $words.Count
 
-    # Commandes de gestion
-    $mgmtCommands = @(
+    # Commandes principales
+    $mainCommands = @()
+    
+    if ($hasPom) {
+        $mainCommands += @{ Name = 'create'; Description = 'Créer des composants Spring Boot' }
+    }
+    
+    $mainCommands += @(
         @{ Name = 'update'; Description = 'Mettre à jour lm-cli' }
         @{ Name = 'install'; Description = 'Installer une version spécifique' }
         @{ Name = 'uninstall'; Description = 'Désinstaller lm-cli' }
@@ -69,16 +75,11 @@ $scriptBlock = {
     }
 
     # Niveau 1: Commande principale (lm ...)
-    if ($wordCount -eq 1 -or ($wordCount -eq 2 -and $wordToComplete)) {
+    if ($wordCount -eq 1 -or ($wordCount -eq 2 -and $words[0] -eq 'lm' -and $wordToComplete)) {
         $results = @()
 
-        # Ajouter create si pom.xml existe
-        if ($hasPom) {
-            $results += New-Completion 'create' 'Créer des composants Spring Boot'
-        }
-
-        # Ajouter les commandes de gestion
-        foreach ($cmd in $mgmtCommands) {
+        # Ajouter les commandes principales
+        foreach ($cmd in $mainCommands) {
             if ($cmd.Name -like "$wordToComplete*") {
                 $results += New-Completion $cmd.Name $cmd.Description
             }
@@ -94,117 +95,65 @@ $scriptBlock = {
         return $results
     }
 
-    $command = $words[1]
-
     # Niveau 2: Sous-commande (lm create ...)
-    if ($wordCount -eq 2 -or ($wordCount -eq 3 -and $wordToComplete)) {
-        if ($command -eq 'create' -and $hasPom) {
-            return $createCommands | Where-Object { $_.Name -like "$wordToComplete*" } | ForEach-Object {
-                New-Completion $_.Name $_.Description
-            }
-        }
-        elseif ($command -eq 'install') {
-            $versions = @('latest', 'v1.2.5', 'v1.2.4', 'v1.2.3')
-            return $versions | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
-                New-Completion $_ "Version $_"
-            }
+    if ($wordCount -eq 2 -and $words[0] -eq 'lm' -and $words[1] -eq 'create') {
+        return $createCommands | Where-Object { $_.Name -like "$wordToComplete*" } | ForEach-Object {
+            New-Completion $_.Name $_.Description
         }
     }
 
     # Niveau 3: Nom ou options (lm create config ...)
-    if ($wordCount -ge 3) {
+    if ($wordCount -ge 3 -and $words[0] -eq 'lm' -and $words[1] -eq 'create') {
         $subcommand = $words[2]
 
-        $suggestions = switch ($subcommand) {
+        $suggestions = @{
+            Names = @()
+            Options = @('--force')
+        }
+
+        switch ($subcommand) {
             'config' {
-                @{
-                    Names = @('Database', 'Security', 'Email', 'Cache', 'Redis', 'OAuth', 'Swagger', 'CORS')
-                    Options = @('--properties', '--force')
-                }
+                $suggestions.Names = @('Database', 'Security', 'Email', 'Cache', 'Redis', 'OAuth', 'Swagger', 'CORS')
+                $suggestions.Options += '--properties'
             }
             'exception' {
-                @{
-                    Names = @('NotFound', 'BadRequest', 'Unauthorized', 'Forbidden', 'Validation')
-                    Options = @('--force')
-                }
+                $suggestions.Names = @('NotFound', 'BadRequest', 'Unauthorized', 'Forbidden', 'Validation')
             }
             'constant' {
-                @{
-                    Names = @('Application', 'Api', 'Database', 'Status', 'ErrorCode')
-                    Options = @('--force')
-                }
+                $suggestions.Names = @('Application', 'Api', 'Database', 'Status', 'ErrorCode')
             }
             'security' {
-                @{
-                    Names = @('JwtUtil', 'SecurityConfig', 'UserDetailsService', 'AuthenticationFilter')
-                    Options = @('--force')
-                }
+                $suggestions.Names = @('JwtUtil', 'SecurityConfig', 'UserDetailsService', 'AuthenticationFilter')
             }
             'dto' {
-                @{
-                    Names = @('User', 'Product', 'Order', 'Customer', 'Invoice', 'Payment')
-                    Options = @('--record', '--force')
-                }
+                $suggestions.Names = @('User', 'Product', 'Order', 'Customer', 'Invoice', 'Payment')
+                $suggestions.Options += '--record'
             }
             'mapper' {
-                @{
-                    Names = @('User', 'Product', 'Order', 'EntityMapper')
-                    Options = @('--init', '--force')
-                }
+                $suggestions.Names = @('User', 'Product', 'Order', 'EntityMapper')
+                $suggestions.Options += '--init'
             }
             'domain' {
-                @{
-                    Names = @('User', 'Product', 'Order', 'Customer', 'Invoice', 'Status', 'Role')
-                    Options = @('--enum', '--entity', '--force')
-                }
+                $suggestions.Names = @('User', 'Product', 'Order', 'Customer', 'Invoice', 'Status', 'Role')
+                $suggestions.Options += '--enum', '--entity'
             }
             'repository' {
-                @{
-                    Names = @('User', 'Product', 'Order', 'Customer', 'Invoice')
-                    Options = @('--force')
-                }
+                $suggestions.Names = @('User', 'Product', 'Order', 'Customer', 'Invoice')
             }
             'service' {
-                @{
-                    Names = @('User', 'Product', 'Order', 'Customer', 'Invoice', 'Email', 'Notification')
-                    Options = @('--mapper', '--criteria', '--query', '--implement', '--class', '--force')
-                }
+                $suggestions.Names = @('User', 'Product', 'Order', 'Customer', 'Invoice', 'Email', 'Notification')
+                $suggestions.Options += '--mapper', '--criteria', '--query', '--implement', '--class'
             }
             'rest' {
-                @{
-                    Names = @('User', 'Product', 'Order', 'Customer', 'Invoice', 'Auth', 'Admin')
-                    Options = @('--force')
-                }
+                $suggestions.Names = @('User', 'Product', 'Order', 'Customer', 'Invoice', 'Auth', 'Admin')
             }
             'changelog' {
-                @{
-                    Names = @('initial', 'create_users', 'create_products', 'add_indexes')
-                    Options = @('--init', '--data', '--sql', '--force')
-                }
+                $suggestions.Names = @('initial', 'create_users', 'create_products', 'add_indexes')
+                $suggestions.Options += '--init', '--data', '--sql'
             }
             'application' {
-                @{
-                    Names = @('dev', 'prod', 'test', 'staging', 'local')
-                    Options = @('--yml', '--properties', '--force')
-                }
-            }
-            'pagination' {
-                @{
-                    Names = @()
-                    Options = @('--force')
-                }
-            }
-            'filter' {
-                @{
-                    Names = @()
-                    Options = @('--force')
-                }
-            }
-            default {
-                @{
-                    Names = @()
-                    Options = @('--force', '--package')
-                }
+                $suggestions.Names = @('dev', 'prod', 'test', 'staging', 'local')
+                $suggestions.Options += '--yml', '--properties'
             }
         }
 
@@ -228,13 +177,11 @@ $scriptBlock = {
 
         return $results
     }
+
+    return $null
 }
 
 # Enregistrer l'autocomplétion pour la commande 'lm'
 Register-ArgumentCompleter -CommandName lm -ScriptBlock $scriptBlock
 
 Write-Host "✅ Autocomplétion lm-cli chargée pour PowerShell" -ForegroundColor Green
-
-if (-not (Test-SpringBootProject)) {
-    Write-Host "⚠️  Pas de pom.xml - la commande 'create' ne sera pas disponible" -ForegroundColor Yellow
-}
