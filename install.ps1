@@ -81,13 +81,13 @@ function Create-WrapperScript {
     # Créer le répertoire bin s'il n'existe pas
     New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
 
-    # Script batch wrapper qui maintient le contexte du répertoire courant
+    # Script batch wrapper CORRIGÉ qui maintient le contexte
     $wrapperContent = @"
 @echo off
 setlocal EnableDelayedExpansion
 
-REM Wrapper pour lm-cli
-REM Ce script maintient le contexte du répertoire courant
+REM Wrapper pour lm-cli - Version corrigée
+REM Ce script garantit que les fichiers sont créés dans le projet Spring Boot
 
 set "INSTALL_DIR=$InstallDir"
 set "CURRENT_DIR=%CD%"
@@ -99,11 +99,16 @@ if not exist "!INSTALL_DIR!\java.sh" (
     exit /b 1
 )
 
-REM Exécuter java.sh depuis le répertoire courant (IMPORTANT!)
-REM Le script java.sh doit générer les fichiers dans le projet Spring Boot, pas dans INSTALL_DIR
-cd /d "!CURRENT_DIR!"
-"!BASH_PATH!" "!INSTALL_DIR!\java.sh" %*
+REM IMPORTANT: Se déplacer vers le répertoire d'installation temporairement
+cd /d "!INSTALL_DIR!"
+
+REM Exécuter java.sh depuis le répertoire courant de l'utilisateur
+REM Le script java.sh doit détecter le pom.xml depuis CURRENT_DIR
+"!BASH_PATH!" -c "cd \"!CURRENT_DIR!\" && \"!INSTALL_DIR!/java.sh\" %*"
 set EXIT_CODE=!ERRORLEVEL!
+
+REM Revenir au répertoire original
+cd /d "!CURRENT_DIR!"
 
 exit /b !EXIT_CODE!
 "@
